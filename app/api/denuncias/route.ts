@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
 
     let archivoOriginalNombre: string | null = null;
     let archivoOriginalTipo: string | null = null;
-    let archivoOriginalDatos: Uint8Array | null = null;
+    let archivoOriginalDatos: Uint8Array<ArrayBuffer> | null = null;
 
     if (file && file.size > 0) {
       if (file.size > MAX_FILE_SIZE) {
@@ -71,7 +71,8 @@ export async function POST(req: NextRequest) {
       }
       archivoOriginalNombre = file.name;
       archivoOriginalTipo = file.type;
-      archivoOriginalDatos = new Uint8Array(await file.arrayBuffer());
+      const arrayBuffer = await file.arrayBuffer();
+      archivoOriginalDatos = new Uint8Array(arrayBuffer);
     }
 
     const enviosIds: string[] = enviosIdsRaw ? JSON.parse(enviosIdsRaw) : [];
