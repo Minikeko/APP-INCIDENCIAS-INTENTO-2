@@ -43,6 +43,7 @@ model User {
   registrosActividad RegistroActividad[]
   denuncias       Denuncia[]
   gastos          Gasto[]
+  archivosExcel ArchivoExcel[]
   chatsParticipante ChatParticipante[]
   mensajes        Mensaje[]
 }
