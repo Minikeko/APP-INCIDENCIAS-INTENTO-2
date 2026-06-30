@@ -41,6 +41,10 @@ model User {
   documentosTarifa  DocumentoTarifa[]
   documentosFactura DocumentoFactura[]
   registrosActividad RegistroActividad[]
+  denuncias       Denuncia[]
+  gastos          Gasto[]
+  chatsParticipante ChatParticipante[]
+  mensajes        Mensaje[]
 }
 
 model Envio {
@@ -63,6 +67,7 @@ model Envio {
   cambiosEstado   CambioEstado[]
   adjuntos        Adjunto[]
   comentarios     Comentario[]
+  denuncias       DenunciaEnvio[]
 
   @@index([estado])
   @@index([mensajero])
@@ -161,6 +166,11 @@ enum TipoAccion {
   USUARIO_ACTUALIZADO
   DOCUMENTO_SUBIDO
   DOCUMENTO_ELIMINADO
+  DENUNCIA_CREADA
+  DENUNCIA_ELIMINADA
+  GASTO_SUBIDO
+  GASTO_ELIMINADO
+  CHAT_CREADO
 }
 
 // Registro de actividad — auditoría de acciones relevantes en la aplicación
@@ -177,4 +187,118 @@ model RegistroActividad {
   @@index([tipo])
   @@index([usuarioId])
   @@index([createdAt])
+}
+
+// ===== Denuncias =====
+// Sección independiente (solo administradores). Puede tener contenido escrito
+// en la app (se genera PDF con membrete) o un PDF ya redactado subido a mano.
+// Opcionalmente se enlaza a uno o varios envíos relacionados.
+
+model Denuncia {
+  id          String   @id @default(cuid())
+  titulo      String
+  descripcion String?  @db.Text   // contenido si se redacta en la app
+  fecha       DateTime @default(now())
+
+  // Si se sube un PDF ya redactado, se guarda aquí; si no, es null y el PDF
+  // se genera al vuelo a partir de titulo/descripcion/fecha con el membrete.
+  archivoOriginalNombre String?
+  archivoOriginalTipo   String?
+  archivoOriginalDatos  Bytes?
+
+  createdAt   DateTime @default(now())
+
+  creadoPorId String
+  creadoPor   User     @relation(fields: [creadoPorId], references: [id])
+
+  envios      DenunciaEnvio[]
+
+  @@index([fecha])
+}
+
+// Tabla intermedia: una denuncia puede enlazar varios envíos y un envío
+// puede aparecer en varias denuncias.
+model DenunciaEnvio {
+  id         String   @id @default(cuid())
+  denunciaId String
+  denuncia   Denuncia @relation(fields: [denunciaId], references: [id], onDelete: Cascade)
+  envioId    String
+  envio      Envio    @relation(fields: [envioId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([denunciaId, envioId])
+  @@index([envioId])
+}
+
+enum CategoriaGasto {
+  COMBUSTIBLE
+  MATERIAL_SUMINISTROS
+  MANTENIMIENTO_VEHICULOS
+  DIETAS_DESPLAZAMIENTOS
+  MATERIAL_OFICINA
+  OTROS
+}
+
+// ===== Gastos varios =====
+// Solo administradores suben los PDFs; se muestran con vista previa en lista.
+model Gasto {
+  id            String         @id @default(cuid())
+  nombreArchivo String
+  tipoArchivo   String         // mime type (siempre PDF en la práctica)
+  tamano        Int            // bytes
+  datos         Bytes          // contenido del archivo
+  fecha         DateTime
+  importe       Decimal        @db.Decimal(12, 2)
+  categoria     CategoriaGasto
+  descripcion   String?
+  createdAt     DateTime       @default(now())
+
+  subidoPorId   String
+  subidoPor     User           @relation(fields: [subidoPorId], references: [id])
+
+  @@index([fecha])
+  @@index([categoria])
+}
+
+enum TipoChat {
+  PRIVADO
+  GRUPAL
+}
+
+// ===== Chats =====
+// Chats privados o grupales entre usuarios. Los administradores pueden ver
+// el contenido de cualquier chat (acceso de supervisión, no anunciado a los
+// usuarios) a través de una ruta de API específica para administradores.
+model Chat {
+  id        String   @id @default(cuid())
+  tipo      TipoChat
+  nombre    String?  // solo relevante para chats grupales
+  createdAt DateTime @default(now())
+
+  participantes ChatParticipante[]
+  mensajes      Mensaje[]
+}
+
+model ChatParticipante {
+  id      String @id @default(cuid())
+  chatId  String
+  chat    Chat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  userId  String
+  user    User   @relation(fields: [userId], references: [id])
+
+  @@unique([chatId, userId])
+  @@index([userId])
+}
+
+model Mensaje {
+  id        String   @id @default(cuid())
+  chatId    String
+  chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  texto     String   @db.Text
+  createdAt DateTime @default(now())
+
+  autorId   String
+  autor     User     @relation(fields: [autorId], references: [id])
+
+  @@index([chatId, createdAt])
 }

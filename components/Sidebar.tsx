@@ -15,6 +15,9 @@ import {
   FileSpreadsheet,
   History,
   BarChart3,
+  MessageSquare,
+  ScrollText,
+  Wallet,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -30,6 +33,7 @@ const NAV_ITEMS = [
   { href: "/envios/nuevo", label: "Nuevo envío", icon: PlusCircle },
   { href: "/alertas", label: "Alertas", icon: BellRing },
   { href: "/informes", label: "Informes", icon: FileBarChart },
+  { href: "/chats", label: "Chats", icon: MessageSquare },
 ];
 
 const ADMIN_ITEMS = [
@@ -37,6 +41,8 @@ const ADMIN_ITEMS = [
   { href: "/admin/usuarios", label: "Usuarios", icon: Users },
   { href: "/admin/tarifas", label: "Tarifas de comerciales", icon: FileSpreadsheet },
   { href: "/admin/facturacion", label: "Facturación", icon: Receipt },
+  { href: "/admin/denuncias", label: "Denuncias", icon: ScrollText },
+  { href: "/admin/gastos", label: "Gastos varios", icon: Wallet },
   { href: "/admin/actividad", label: "Registro de actividad", icon: History },
 ];
 

@@ -13,7 +13,12 @@ type TipoAccion =
   | "USUARIO_CREADO"
   | "USUARIO_ACTUALIZADO"
   | "DOCUMENTO_SUBIDO"
-  | "DOCUMENTO_ELIMINADO";
+  | "DOCUMENTO_ELIMINADO"
+  | "DENUNCIA_CREADA"
+  | "DENUNCIA_ELIMINADA"
+  | "GASTO_SUBIDO"
+  | "GASTO_ELIMINADO"
+  | "CHAT_CREADO";
 
 interface RegistrarActividadParams {
   tipo: TipoAccion;

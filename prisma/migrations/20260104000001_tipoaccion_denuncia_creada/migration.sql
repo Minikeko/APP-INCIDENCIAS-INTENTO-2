@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "TipoAccion" ADD VALUE 'DENUNCIA_CREADA';

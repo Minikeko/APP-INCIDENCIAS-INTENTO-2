@@ -67,3 +67,18 @@ export const ROLES = {
   ADMIN: "Administrador",
   OPERADOR: "Operador",
 } as const;
+
+export const CATEGORIAS_GASTO = {
+  COMBUSTIBLE: "Combustible",
+  MATERIAL_SUMINISTROS: "Material y suministros",
+  MANTENIMIENTO_VEHICULOS: "Mantenimiento de vehículos",
+  DIETAS_DESPLAZAMIENTOS: "Dietas y desplazamientos",
+  MATERIAL_OFICINA: "Material de oficina",
+  OTROS: "Otros",
+} as const;
+
+export type CategoriaGastoKey = keyof typeof CATEGORIAS_GASTO;
+
+export const CATEGORIAS_GASTO_LIST = Object.entries(CATEGORIAS_GASTO).map(
+  ([key, label]) => ({ key: key as CategoriaGastoKey, label })
+);
