@@ -302,3 +302,18 @@ model Mensaje {
 
   @@index([chatId, createdAt])
 }
+
+// ===== Archivos Excel =====
+model ArchivoExcel {
+  id            String   @id @default(cuid())
+  nombreArchivo String
+  tamano        Int
+  datos         Bytes
+  descripcion   String?
+  createdAt     DateTime @default(now())
+
+  subidoPorId   String
+  subidoPor     User     @relation(fields: [subidoPorId], references: [id])
+
+  @@index([createdAt])
+}
