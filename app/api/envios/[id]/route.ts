@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireUser, requireAdmin } from "@/lib/session";
+import { requireUser } from "@/lib/session";
 import { handleApiError } from "@/lib/api-error";
 import { registrarActividad } from "@/lib/actividad";
 
@@ -64,6 +64,7 @@ export async function PATCH(
       destinatario,
       direccion,
       fechaEnvio,
+      fechaInforme,
     } = body;
 
     const envio = await prisma.envio.update({
@@ -81,6 +82,9 @@ export async function PATCH(
         ...(fechaEnvio !== undefined && {
           fechaEnvio: fechaEnvio ? new Date(fechaEnvio) : null,
         }),
+        ...(fechaInforme !== undefined && {
+          fechaInforme: fechaInforme ? new Date(fechaInforme) : null,
+        }),
       },
     });
 
@@ -97,20 +101,20 @@ export async function PATCH(
   }
 }
 
-// DELETE /api/envios/[id] — elimina un envío (solo administradores)
+// DELETE /api/envios/[id] — elimina un envío (cualquier usuario autenticado)
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await requireAdmin();
+    const user = await requireUser();
     const { id } = await params;
     const envio = await prisma.envio.delete({ where: { id } });
 
     await registrarActividad({
       tipo: "ENVIO_ELIMINADO",
-      descripcion: `${admin.nombre} eliminó el envío ${envio.numeroSeguimiento}`,
-      usuarioId: admin.userId,
+      descripcion: `${user.nombre} eliminó el envío ${envio.numeroSeguimiento}`,
+      usuarioId: user.userId,
     });
 
     return NextResponse.json({ ok: true });

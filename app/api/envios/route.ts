@@ -61,6 +61,7 @@ export async function POST(req: NextRequest) {
       destinatario,
       direccion,
       fechaEnvio,
+      fechaInforme,
     } = body;
 
     if (!numeroSeguimiento || !mensajero) {
@@ -90,6 +91,7 @@ export async function POST(req: NextRequest) {
         destinatario: destinatario?.trim() || null,
         direccion: direccion?.trim() || null,
         fechaEnvio: fechaEnvio ? new Date(fechaEnvio) : null,
+        fechaInforme: fechaInforme ? new Date(fechaInforme) : null,
         creadoPorId: user.userId,
         cambiosEstado: {
           create: {

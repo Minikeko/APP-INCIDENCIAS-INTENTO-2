@@ -49,6 +49,7 @@ interface EnvioDetalle {
   destinatario: string | null;
   direccion: string | null;
   fechaEnvio: string | null;
+  fechaInforme: string | null;
   ultimaActualizacion: string;
   createdAt: string;
   creadoPor: { nombre: string; email: string };
@@ -76,6 +77,7 @@ export default function DetalleEnvioPage() {
   const [comentario, setComentario] = useState("");
   const [enviandoComentario, setEnviandoComentario] = useState(false);
   const [subiendoArchivo, setSubiendoArchivo] = useState(false);
+  const [eliminandoEnvio, setEliminandoEnvio] = useState(false);
 
   const cargarEnvio = useCallback(async () => {
     try {
@@ -199,6 +201,31 @@ export default function DetalleEnvioPage() {
     }
   }
 
+  async function handleEliminarEnvio() {
+    if (!envio) return;
+    if (
+      !confirm(
+        `¿Eliminar definitivamente el envío ${envio.numeroSeguimiento}? Esta acción no se puede deshacer.`
+      )
+    )
+      return;
+    setEliminandoEnvio(true);
+    try {
+      const res = await fetch(`/api/envios/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        toast.success("Envío eliminado");
+        router.push("/");
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Error al eliminar el envío");
+        setEliminandoEnvio(false);
+      }
+    } catch {
+      toast.error("Error de conexión");
+      setEliminandoEnvio(false);
+    }
+  }
+
   if (loading) {
     return <div className="p-8 text-[var(--text-secondary)]">Cargando...</div>;
   }
@@ -227,6 +254,14 @@ export default function DetalleEnvioPage() {
             {envio.destinatario && ` · Destinatario: ${envio.destinatario}`}
           </p>
         </div>
+        <button
+          onClick={handleEliminarEnvio}
+          disabled={eliminandoEnvio}
+          className="flex items-center gap-1.5 text-sm text-[var(--text-muted)] hover:text-[var(--status-perdido)] disabled:opacity-50 transition-colors"
+        >
+          <Trash2 size={15} />
+          {eliminandoEnvio ? "Eliminando..." : "Eliminar envío"}
+        </button>
       </div>
 
       <div className="grid grid-cols-3 gap-6">
@@ -251,6 +286,14 @@ export default function DetalleEnvioPage() {
                 <dd className="text-[var(--text-primary)] font-mono">
                   {envio.fechaEnvio
                     ? new Date(envio.fechaEnvio).toLocaleDateString("es-ES")
+                    : "—"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[var(--text-muted)] text-xs mb-0.5">Fecha en la que se informa</dt>
+                <dd className="text-[var(--text-primary)] font-mono">
+                  {envio.fechaInforme
+                    ? new Date(envio.fechaInforme).toLocaleDateString("es-ES")
                     : "—"}
                 </dd>
               </div>

@@ -48,6 +48,7 @@ export async function GET(req: NextRequest) {
       { header: "Destinatario", key: "destinatario", width: 22 },
       { header: "Dirección", key: "direccion", width: 30 },
       { header: "Fecha de envío", key: "fechaEnvio", width: 16 },
+      { header: "Fecha en la que se informa", key: "fechaInforme", width: 20 },
       { header: "Última actualización", key: "ultimaActualizacion", width: 20 },
       { header: "Registrado por", key: "creadoPor", width: 18 },
       { header: "Fecha de registro", key: "createdAt", width: 18 },
@@ -73,6 +74,9 @@ export async function GET(req: NextRequest) {
         fechaEnvio: envio.fechaEnvio
           ? envio.fechaEnvio.toLocaleDateString("es-ES")
           : "",
+        fechaInforme: envio.fechaInforme
+          ? envio.fechaInforme.toLocaleDateString("es-ES")
+          : "",
         ultimaActualizacion: envio.ultimaActualizacion.toLocaleString("es-ES"),
         creadoPor: envio.creadoPor.nombre,
         createdAt: envio.createdAt.toLocaleDateString("es-ES"),
@@ -81,7 +85,7 @@ export async function GET(req: NextRequest) {
 
     sheet.autoFilter = {
       from: "A1",
-      to: `K${envios.length + 1}`,
+      to: `L${envios.length + 1}`,
     };
 
     const buffer = await workbook.xlsx.writeBuffer();

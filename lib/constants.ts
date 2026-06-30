@@ -24,6 +24,11 @@ export const ESTADOS = {
     color: "var(--status-encontrado)",
     bg: "rgba(56, 189, 248, 0.12)",
   },
+  MAL_ENTREGADO: {
+    label: "Mal entregado",
+    color: "var(--status-mal-entregado)",
+    bg: "rgba(251, 146, 60, 0.12)",
+  },
   ENTREGADO: {
     label: "Entregado",
     color: "var(--status-entregado)",
@@ -55,6 +60,7 @@ export const ESTADOS_ABIERTOS: EstadoKey[] = [
   "PERDIDO",
   "EN_INVESTIGACION",
   "ENCONTRADO",
+  "MAL_ENTREGADO",
 ];
 
 export const ROLES = {

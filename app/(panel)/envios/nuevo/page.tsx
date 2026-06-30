@@ -17,6 +17,7 @@ export default function NuevoEnvioPage() {
     destinatario: "",
     direccion: "",
     fechaEnvio: "",
+    fechaInforme: "",
   });
 
   function update(field: string, value: string) {
@@ -100,6 +101,15 @@ export default function NuevoEnvioPage() {
             />
           </Field>
         </div>
+
+        <Field label="Fecha en la que se informa">
+          <input
+            type="date"
+            value={form.fechaInforme}
+            onChange={(e) => update("fechaInforme", e.target.value)}
+            className="input"
+          />
+        </Field>
 
         <Field label="Motivo">
           <input

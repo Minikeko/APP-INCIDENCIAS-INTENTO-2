@@ -20,6 +20,7 @@ enum EstadoEnvio {
   PERDIDO
   EN_INVESTIGACION
   ENCONTRADO
+  MAL_ENTREGADO
   ENTREGADO
   DEVUELTO
   RESUELTO
@@ -52,6 +53,7 @@ model Envio {
   destinatario    String?
   direccion       String?
   fechaEnvio      DateTime?
+  fechaInforme    DateTime?   // fecha en la que se informó de la incidencia
   ultimaActualizacion DateTime @updatedAt
   createdAt       DateTime @default(now())
 
