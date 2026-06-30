@@ -1,0 +1,104 @@
+// Esquema de base de datos para la app de Gestión de Envíos
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  OPERADOR
+}
+
+enum EstadoEnvio {
+  EN_TRANSITO
+  RETRASADO
+  PERDIDO
+  EN_INVESTIGACION
+  ENCONTRADO
+  ENTREGADO
+  DEVUELTO
+  RESUELTO
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  nombre       String
+  passwordHash String
+  role         Role     @default(OPERADOR)
+  activo       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  envios          Envio[]          @relation("CreadoPor")
+  cambiosEstado   CambioEstado[]
+  comentarios     Comentario[]
+}
+
+model Envio {
+  id              String   @id @default(cuid())
+  numeroSeguimiento String @unique
+  mensajero       String
+  estado          EstadoEnvio @default(EN_TRANSITO)
+  motivo          String?     // motivo del problema (ej. "extraviado en tránsito")
+  descripcion     String?     @db.Text
+  destinatario    String?
+  direccion       String?
+  fechaEnvio      DateTime?
+  ultimaActualizacion DateTime @updatedAt
+  createdAt       DateTime @default(now())
+
+  creadoPorId     String
+  creadoPor       User     @relation("CreadoPor", fields: [creadoPorId], references: [id])
+
+  cambiosEstado   CambioEstado[]
+  adjuntos        Adjunto[]
+  comentarios     Comentario[]
+
+  @@index([estado])
+  @@index([mensajero])
+  @@index([numeroSeguimiento])
+}
+
+model CambioEstado {
+  id          String      @id @default(cuid())
+  envioId     String
+  envio       Envio       @relation(fields: [envioId], references: [id], onDelete: Cascade)
+  estadoAnterior EstadoEnvio?
+  estadoNuevo EstadoEnvio
+  nota        String?
+  creadoPorId String
+  creadoPor   User        @relation(fields: [creadoPorId], references: [id])
+  createdAt   DateTime    @default(now())
+
+  @@index([envioId])
+}
+
+model Comentario {
+  id          String   @id @default(cuid())
+  envioId     String
+  envio       Envio    @relation(fields: [envioId], references: [id], onDelete: Cascade)
+  texto       String   @db.Text
+  creadoPorId String
+  creadoPor   User     @relation(fields: [creadoPorId], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@index([envioId])
+}
+
+model Adjunto {
+  id          String   @id @default(cuid())
+  envioId     String
+  envio       Envio    @relation(fields: [envioId], references: [id], onDelete: Cascade)
+  nombreArchivo String
+  tipoArchivo String   // mime type
+  tamano      Int      // bytes
+  datos       Bytes    // contenido del archivo guardado en la propia BD
+  createdAt   DateTime @default(now())
+
+  @@index([envioId])
+}

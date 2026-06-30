@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+:root {
+  /* Fondo y superficies — gris carbón, sala de control */
+  --bg-base: #14161a;
+  --bg-panel: #1c1f26;
+  --bg-panel-raised: #232730;
+  --border-subtle: #2a2e37;
+  --border-strong: #3a3f4b;
+
+  /* Texto */
+  --text-primary: #e8e6e1;
+  --text-secondary: #9a9fac;
+  --text-muted: #6b7080;
+
+  /* Acento — ámbar de muelle de carga */
+  --accent: #e8a33d;
+  --accent-hover: #f0b35a;
+  --accent-dim: #5c4625;
+
+  /* Semáforo de estados */
+  --status-transito: #5b9bd5;
+  --status-retrasado: #fbbf24;
+  --status-perdido: #f87171;
+  --status-investigacion: #c084fc;
+  --status-encontrado: #38bdf8;
+  --status-entregado: #4ade80;
+  --status-devuelto: #94a3b8;
+  --status-resuelto: #4ade80;
+
+  --font-display: "Oswald", sans-serif;
+  --font-body: "IBM Plex Sans", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+* {
+  border-color: var(--border-subtle);
+}
+
+body {
+  font-family: var(--font-body);
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* Scrollbar discreto, a juego con el panel */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-base);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Foco de teclado visible, accesibilidad */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
