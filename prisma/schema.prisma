@@ -43,9 +43,9 @@ model User {
   registrosActividad RegistroActividad[]
   denuncias       Denuncia[]
   gastos          Gasto[]
-  archivosExcel ArchivoExcel[]
   chatsParticipante ChatParticipante[]
   mensajes        Mensaje[]
+  archivosExcel   ArchivoExcel[]
 }
 
 model Envio {
@@ -305,12 +305,14 @@ model Mensaje {
 }
 
 // ===== Archivos Excel =====
+// Sección para subir Excels tal cual, sin campos adicionales obligatorios.
+// Solo administradores. Vista previa respetando el formato visual del archivo.
 model ArchivoExcel {
   id            String   @id @default(cuid())
   nombreArchivo String
-  tamano        Int
+  tamano        Int      // bytes
   datos         Bytes
-  descripcion   String?
+  descripcion   String?  // nombre o nota opcional que el usuario puede añadir
   createdAt     DateTime @default(now())
 
   subidoPorId   String
