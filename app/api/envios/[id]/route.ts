@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser, requireAdmin } from "@/lib/session";
 import { handleApiError } from "@/lib/api-error";
+import { registrarActividad } from "@/lib/actividad";
 
 // GET /api/envios/[id] — detalle completo de un envío
 export async function GET(
@@ -52,7 +53,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireUser();
+    const user = await requireUser();
     const { id } = await params;
     const body = await req.json();
 
@@ -83,6 +84,13 @@ export async function PATCH(
       },
     });
 
+    await registrarActividad({
+      tipo: "ENVIO_EDITADO",
+      descripcion: `${user.nombre} editó los datos del envío ${envio.numeroSeguimiento}`,
+      usuarioId: user.userId,
+      entidadId: envio.id,
+    });
+
     return NextResponse.json({ envio });
   } catch (error) {
     return handleApiError(error);
@@ -95,9 +103,16 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireAdmin();
+    const admin = await requireAdmin();
     const { id } = await params;
-    await prisma.envio.delete({ where: { id } });
+    const envio = await prisma.envio.delete({ where: { id } });
+
+    await registrarActividad({
+      tipo: "ENVIO_ELIMINADO",
+      descripcion: `${admin.nombre} eliminó el envío ${envio.numeroSeguimiento}`,
+      usuarioId: admin.userId,
+    });
+
     return NextResponse.json({ ok: true });
   } catch (error) {
     return handleApiError(error);

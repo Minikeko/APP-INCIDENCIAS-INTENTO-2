@@ -6,6 +6,7 @@ import {
   SESSION_COOKIE_NAME,
   SESSION_MAX_AGE,
 } from "@/lib/auth";
+import { registrarActividad } from "@/lib/actividad";
 
 export async function POST(req: NextRequest) {
   try {
@@ -59,6 +60,12 @@ export async function POST(req: NextRequest) {
       sameSite: "lax",
       maxAge: SESSION_MAX_AGE,
       path: "/",
+    });
+
+    await registrarActividad({
+      tipo: "LOGIN",
+      descripcion: `${user.nombre} inició sesión`,
+      usuarioId: user.id,
     });
 
     return response;

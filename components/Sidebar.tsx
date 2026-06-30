@@ -10,6 +10,11 @@ import {
   FileBarChart,
   Users,
   LogOut,
+  ShieldCheck,
+  Receipt,
+  FileSpreadsheet,
+  History,
+  BarChart3,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -25,6 +30,14 @@ const NAV_ITEMS = [
   { href: "/envios/nuevo", label: "Nuevo envío", icon: PlusCircle },
   { href: "/alertas", label: "Alertas", icon: BellRing },
   { href: "/informes", label: "Informes", icon: FileBarChart },
+];
+
+const ADMIN_ITEMS = [
+  { href: "/admin/estadisticas", label: "Estadísticas", icon: BarChart3 },
+  { href: "/admin/usuarios", label: "Usuarios", icon: Users },
+  { href: "/admin/tarifas", label: "Tarifas de comerciales", icon: FileSpreadsheet },
+  { href: "/admin/facturacion", label: "Facturación", icon: Receipt },
+  { href: "/admin/actividad", label: "Registro de actividad", icon: History },
 ];
 
 export function Sidebar() {
@@ -51,7 +64,7 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="w-64 bg-[var(--bg-panel)] border-r border-[var(--border-subtle)] flex flex-col h-screen sticky top-0">
+    <aside className="w-64 bg-[var(--bg-panel)] border-r border-[var(--border-subtle)] flex flex-col h-screen sticky top-0 overflow-y-auto">
       <div className="px-5 py-5 border-b border-[var(--border-subtle)]">
         <div className="flex items-center gap-2.5">
           <PackageSearch size={20} style={{ color: "var(--accent)" }} />
@@ -85,17 +98,32 @@ export function Sidebar() {
         })}
 
         {user?.role === "ADMIN" && (
-          <Link
-            href="/usuarios"
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors ${
-              pathname.startsWith("/usuarios")
-                ? "bg-[var(--accent-dim)] text-[var(--accent)] font-medium"
-                : "text-[var(--text-secondary)] hover:bg-[var(--bg-panel-raised)] hover:text-[var(--text-primary)]"
-            }`}
-          >
-            <Users size={17} />
-            Usuarios
-          </Link>
+          <div className="pt-5 mt-4 border-t border-[var(--border-subtle)]">
+            <div className="flex items-center gap-1.5 px-3 mb-2">
+              <ShieldCheck size={13} className="text-[var(--text-muted)]" />
+              <span className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] font-medium">
+                Administración
+              </span>
+            </div>
+            {ADMIN_ITEMS.map((item) => {
+              const isActive = pathname.startsWith(item.href);
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors ${
+                    isActive
+                      ? "bg-[var(--accent-dim)] text-[var(--accent)] font-medium"
+                      : "text-[var(--text-secondary)] hover:bg-[var(--bg-panel-raised)] hover:text-[var(--text-primary)]"
+                  }`}
+                >
+                  <Icon size={17} />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
         )}
       </nav>
 

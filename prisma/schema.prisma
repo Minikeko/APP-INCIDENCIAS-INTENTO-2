@@ -34,9 +34,12 @@ model User {
   activo       Boolean  @default(true)
   createdAt    DateTime @default(now())
 
-  envios          Envio[]          @relation("CreadoPor")
+  envios          Envio[]            @relation("CreadoPor")
   cambiosEstado   CambioEstado[]
   comentarios     Comentario[]
+  documentosTarifa  DocumentoTarifa[]
+  documentosFactura DocumentoFactura[]
+  registrosActividad RegistroActividad[]
 }
 
 model Envio {
@@ -101,4 +104,75 @@ model Adjunto {
   createdAt   DateTime @default(now())
 
   @@index([envioId])
+}
+
+// Documentos de tarifas de comerciales — solo accesible para administradores
+model DocumentoTarifa {
+  id            String   @id @default(cuid())
+  nombreArchivo String
+  tipoArchivo   String   // mime type
+  tamano        Int      // bytes
+  datos         Bytes    // contenido del archivo guardado en la propia BD
+  mes           Int      // 1-12
+  anio          Int
+  comercial     String
+  createdAt     DateTime @default(now())
+
+  subidoPorId   String
+  subidoPor     User     @relation(fields: [subidoPorId], references: [id])
+
+  @@index([anio, mes])
+  @@index([comercial])
+}
+
+// Documentos de facturación — solo accesible para administradores
+model DocumentoFactura {
+  id            String   @id @default(cuid())
+  nombreArchivo String
+  tipoArchivo   String   // mime type
+  tamano        Int      // bytes
+  datos         Bytes    // contenido del archivo guardado en la propia BD
+  mes           Int      // 1-12
+  anio          Int
+  clienteProveedor String
+  numeroFactura String?
+  importe       Decimal? @db.Decimal(12, 2)
+  createdAt     DateTime @default(now())
+
+  subidoPorId   String
+  subidoPor     User     @relation(fields: [subidoPorId], references: [id])
+
+  @@index([anio, mes])
+  @@index([clienteProveedor])
+}
+
+enum TipoAccion {
+  LOGIN
+  ENVIO_CREADO
+  ENVIO_EDITADO
+  ENVIO_ELIMINADO
+  ESTADO_CAMBIADO
+  COMENTARIO_ANADIDO
+  ADJUNTO_SUBIDO
+  ADJUNTO_ELIMINADO
+  USUARIO_CREADO
+  USUARIO_ACTUALIZADO
+  DOCUMENTO_SUBIDO
+  DOCUMENTO_ELIMINADO
+}
+
+// Registro de actividad — auditoría de acciones relevantes en la aplicación
+model RegistroActividad {
+  id          String     @id @default(cuid())
+  tipo        TipoAccion
+  descripcion String     // texto legible, ej. "Cambió el estado de ES4471829034 a Perdido"
+  entidadId   String?    // id del envío/usuario/documento afectado, si aplica
+  createdAt   DateTime   @default(now())
+
+  usuarioId   String
+  usuario     User       @relation(fields: [usuarioId], references: [id])
+
+  @@index([tipo])
+  @@index([usuarioId])
+  @@index([createdAt])
 }

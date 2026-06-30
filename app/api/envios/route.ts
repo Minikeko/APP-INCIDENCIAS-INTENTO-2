@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { handleApiError } from "@/lib/api-error";
+import { registrarActividad } from "@/lib/actividad";
 import { Prisma } from "@prisma/client";
 
 // GET /api/envios — lista envíos con filtros opcionales
@@ -98,6 +99,13 @@ export async function POST(req: NextRequest) {
           },
         },
       },
+    });
+
+    await registrarActividad({
+      tipo: "ENVIO_CREADO",
+      descripcion: `${user.nombre} registró el envío ${envio.numeroSeguimiento}`,
+      usuarioId: user.userId,
+      entidadId: envio.id,
     });
 
     return NextResponse.json({ envio }, { status: 201 });

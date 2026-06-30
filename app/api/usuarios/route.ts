@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin, requireUser } from "@/lib/session";
 import { handleApiError } from "@/lib/api-error";
 import { hashPassword } from "@/lib/auth";
+import { registrarActividad } from "@/lib/actividad";
 
 // GET /api/usuarios — lista usuarios del equipo (cualquier usuario autenticado puede ver la lista, p.ej. para el filtro de "creado por")
 export async function GET() {
@@ -28,7 +29,7 @@ export async function GET() {
 // POST /api/usuarios — crea un nuevo usuario del equipo (solo admin)
 export async function POST(req: NextRequest) {
   try {
-    await requireAdmin();
+    const admin = await requireAdmin();
     const { email, nombre, password, role } = await req.json();
 
     if (!email || !nombre || !password) {
@@ -72,6 +73,13 @@ export async function POST(req: NextRequest) {
         activo: true,
         createdAt: true,
       },
+    });
+
+    await registrarActividad({
+      tipo: "USUARIO_CREADO",
+      descripcion: `${admin.nombre} creó el usuario ${usuario.nombre} (${usuario.email})`,
+      usuarioId: admin.userId,
+      entidadId: usuario.id,
     });
 
     return NextResponse.json({ usuario }, { status: 201 });
