@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { Wallet, Plus, Download, Trash2, X, FileText, FileSpreadsheet } from "lucide-react";
 import toast from "react-hot-toast";
 import { CATEGORIAS_GASTO, CATEGORIAS_GASTO_LIST, CategoriaGastoKey } from "@/lib/constants";
-import { ImportarExcelModal } from "@/components/ImportarExcelModal";
 
 interface Gasto {
   id: string;
@@ -15,6 +14,15 @@ interface Gasto {
   categoria: CategoriaGastoKey;
   descripcion: string | null;
   subidoPor: { nombre: string };
+}
+
+interface CeldaPreview {
+  valor: string;
+  negrita: boolean;
+  cursiva: boolean;
+  colorTexto: string | null;
+  colorFondo: string | null;
+  alineacion: "left" | "center" | "right" | null;
 }
 
 const TIPOS_EXCEL = [
@@ -34,7 +42,6 @@ export default function GastosPage() {
   const [gastos, setGastos] = useState<Gasto[]>([]);
   const [loading, setLoading] = useState(true);
   const [mostrarForm, setMostrarForm] = useState(false);
-  const [mostrarImportar, setMostrarImportar] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [previsualizando, setPrevisualizando] = useState<Gasto | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -129,22 +136,13 @@ export default function GastosPage() {
             Gastos varios
           </h1>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setMostrarImportar(true)}
-            className="flex items-center gap-1.5 bg-[var(--bg-panel-raised)] border border-[var(--border-strong)] hover:border-[var(--accent)] text-[var(--text-primary)] text-sm rounded-md px-4 py-2 transition-colors"
-          >
-            <FileSpreadsheet size={15} />
-            Importar Excel
-          </button>
-          <button
-            onClick={() => setMostrarForm((v) => !v)}
-            className="flex items-center gap-1.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[#1a1408] font-semibold text-sm rounded-md px-4 py-2 transition-colors"
-          >
-            <Plus size={15} />
-            Subir gasto
-          </button>
-        </div>
+        <button
+          onClick={() => setMostrarForm((v) => !v)}
+          className="flex items-center gap-1.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[#1a1408] font-semibold text-sm rounded-md px-4 py-2 transition-colors"
+        >
+          <Plus size={15} />
+          Subir gasto
+        </button>
       </div>
       <p className="text-sm text-[var(--text-secondary)] mb-6">
         {loading
@@ -316,19 +314,13 @@ export default function GastosPage() {
           )}
         </div>
       </div>
-
-      {mostrarImportar && (
-        <ImportarExcelModal
-          onClose={() => setMostrarImportar(false)}
-          onImportado={cargarGastos}
-        />
-      )}
     </div>
   );
 }
 
 function VistaPrevia({ gasto, onCerrar }: { gasto: Gasto; onCerrar: () => void }) {
-  const [filas, setFilas] = useState<string[][] | null>(null);
+  const [filas, setFilas] = useState<CeldaPreview[][] | null>(null);
+  const [anchosColumnas, setAnchosColumnas] = useState<number[]>([]);
   const [cargandoPreview, setCargandoPreview] = useState(false);
 
   useEffect(() => {
@@ -342,7 +334,10 @@ function VistaPrevia({ gasto, onCerrar }: { gasto: Gasto; onCerrar: () => void }
       const res = await fetch(`/api/gastos/${gasto.id}/preview`);
       const data = await res.json();
       if (!activo) return;
-      if (res.ok) setFilas(data.filas);
+      if (res.ok) {
+        setFilas(data.filas);
+        setAnchosColumnas(data.anchosColumnas || []);
+      }
       setCargandoPreview(false);
     })();
     return () => {
@@ -360,22 +355,32 @@ function VistaPrevia({ gasto, onCerrar }: { gasto: Gasto; onCerrar: () => void }
       </div>
 
       {esExcel(gasto.tipoArchivo) ? (
-        <div className="max-h-[500px] overflow-auto p-2">
+        <div className="max-h-[500px] overflow-auto bg-white">
           {cargandoPreview ? (
-            <p className="text-xs text-[var(--text-muted)] p-3">Cargando vista previa...</p>
+            <p className="text-xs text-gray-500 p-3">Cargando vista previa...</p>
           ) : filas && filas.length > 0 ? (
-            <table className="w-full text-xs">
+            <table className="border-collapse" style={{ tableLayout: "fixed" }}>
+              <colgroup>
+                {anchosColumnas.map((ancho, i) => (
+                  <col key={i} style={{ width: `${ancho}px` }} />
+                ))}
+              </colgroup>
               <tbody>
                 {filas.map((fila, i) => (
-                  <tr
-                    key={i}
-                    className={`border-b border-[var(--border-subtle)] last:border-0 ${
-                      i === 0 ? "font-semibold text-[var(--text-primary)]" : "text-[var(--text-secondary)]"
-                    }`}
-                  >
+                  <tr key={i}>
                     {fila.map((celda, j) => (
-                      <td key={j} className="px-2 py-1 whitespace-nowrap">
-                        {celda}
+                      <td
+                        key={j}
+                        className="border border-gray-200 px-1.5 py-1 text-xs overflow-hidden text-ellipsis whitespace-nowrap"
+                        style={{
+                          fontWeight: celda.negrita ? 700 : 400,
+                          fontStyle: celda.cursiva ? "italic" : "normal",
+                          color: celda.colorTexto || "#111827",
+                          backgroundColor: celda.colorFondo || undefined,
+                          textAlign: celda.alineacion || "left",
+                        }}
+                      >
+                        {celda.valor}
                       </td>
                     ))}
                   </tr>
@@ -383,7 +388,7 @@ function VistaPrevia({ gasto, onCerrar }: { gasto: Gasto; onCerrar: () => void }
               </tbody>
             </table>
           ) : (
-            <p className="text-xs text-[var(--text-muted)] p-3">Sin datos para mostrar.</p>
+            <p className="text-xs text-gray-500 p-3">Sin datos para mostrar.</p>
           )}
         </div>
       ) : (

@@ -82,33 +82,3 @@ export type CategoriaGastoKey = keyof typeof CATEGORIAS_GASTO;
 export const CATEGORIAS_GASTO_LIST = Object.entries(CATEGORIAS_GASTO).map(
   ([key, label]) => ({ key: key as CategoriaGastoKey, label })
 );
-
-// Palabras clave para detectar automáticamente la categoría a partir de texto
-// libre al importar gastos desde Excel. Se compara en minúsculas y sin acentos.
-const PALABRAS_CLAVE_CATEGORIA: Record<CategoriaGastoKey, string[]> = {
-  COMBUSTIBLE: ["combustible", "gasolina", "diesel", "gasoleo", "carburante", "repsol", "cepsa", "estacion de servicio"],
-  MATERIAL_SUMINISTROS: ["material", "suministro", "almacen", "embalaje", "ferreteria"],
-  MANTENIMIENTO_VEHICULOS: ["mantenimiento", "taller", "vehiculo", "furgoneta", "neumatico", "itv", "reparacion coche", "averia"],
-  DIETAS_DESPLAZAMIENTOS: ["dieta", "desplazamiento", "viaje", "kilometraje", "peaje", "parking", "aparcamiento", "hotel", "restaurante", "comida"],
-  MATERIAL_OFICINA: ["oficina", "papeleria", "impresora", "toner", "folios"],
-  OTROS: [],
-};
-
-function quitarAcentos(texto: string): string {
-  return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-}
-
-/**
- * Intenta adivinar la categoría de gasto a partir de un texto libre (por
- * ejemplo, la columna de categoría o descripción de un Excel importado).
- * Si no reconoce ninguna palabra clave, devuelve OTROS.
- */
-export function detectarCategoriaGasto(textoLibre: string): CategoriaGastoKey {
-  const normalizado = quitarAcentos(textoLibre.toLowerCase());
-  for (const [categoria, palabras] of Object.entries(PALABRAS_CLAVE_CATEGORIA)) {
-    if (palabras.some((palabra) => normalizado.includes(palabra))) {
-      return categoria as CategoriaGastoKey;
-    }
-  }
-  return "OTROS";
-}
