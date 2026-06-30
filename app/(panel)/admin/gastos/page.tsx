@@ -1,18 +1,29 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Wallet, Plus, Download, Trash2, X, FileText } from "lucide-react";
+import { Wallet, Plus, Download, Trash2, X, FileText, FileSpreadsheet } from "lucide-react";
 import toast from "react-hot-toast";
 import { CATEGORIAS_GASTO, CATEGORIAS_GASTO_LIST, CategoriaGastoKey } from "@/lib/constants";
+import { ImportarExcelModal } from "@/components/ImportarExcelModal";
 
 interface Gasto {
   id: string;
   nombreArchivo: string;
+  tipoArchivo: string;
   fecha: string;
   importe: number;
   categoria: CategoriaGastoKey;
   descripcion: string | null;
   subidoPor: { nombre: string };
+}
+
+const TIPOS_EXCEL = [
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+];
+
+function esExcel(tipoArchivo: string) {
+  return TIPOS_EXCEL.includes(tipoArchivo);
 }
 
 function formatEuros(importe: number) {
@@ -23,6 +34,7 @@ export default function GastosPage() {
   const [gastos, setGastos] = useState<Gasto[]>([]);
   const [loading, setLoading] = useState(true);
   const [mostrarForm, setMostrarForm] = useState(false);
+  const [mostrarImportar, setMostrarImportar] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [previsualizando, setPrevisualizando] = useState<Gasto | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -61,7 +73,7 @@ export default function GastosPage() {
     e.preventDefault();
     const file = fileInputRef.current?.files?.[0];
     if (!file) {
-      toast.error("Selecciona un archivo PDF");
+      toast.error("Selecciona un archivo PDF o Excel");
       return;
     }
     setGuardando(true);
@@ -117,13 +129,22 @@ export default function GastosPage() {
             Gastos varios
           </h1>
         </div>
-        <button
-          onClick={() => setMostrarForm((v) => !v)}
-          className="flex items-center gap-1.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[#1a1408] font-semibold text-sm rounded-md px-4 py-2 transition-colors"
-        >
-          <Plus size={15} />
-          Subir gasto
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setMostrarImportar(true)}
+            className="flex items-center gap-1.5 bg-[var(--bg-panel-raised)] border border-[var(--border-strong)] hover:border-[var(--accent)] text-[var(--text-primary)] text-sm rounded-md px-4 py-2 transition-colors"
+          >
+            <FileSpreadsheet size={15} />
+            Importar Excel
+          </button>
+          <button
+            onClick={() => setMostrarForm((v) => !v)}
+            className="flex items-center gap-1.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[#1a1408] font-semibold text-sm rounded-md px-4 py-2 transition-colors"
+          >
+            <Plus size={15} />
+            Subir gasto
+          </button>
+        </div>
       </div>
       <p className="text-sm text-[var(--text-secondary)] mb-6">
         {loading
@@ -195,13 +216,13 @@ export default function GastosPage() {
 
           <div>
             <label className="block text-xs uppercase tracking-wider text-[var(--text-muted)] mb-1.5">
-              Archivo (PDF)
+              Archivo (PDF o Excel)
             </label>
             <input
               ref={fileInputRef}
               type="file"
               required
-              accept="application/pdf"
+              accept="application/pdf,.xlsx,.xls"
               className="w-full text-sm text-[var(--text-secondary)] file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-[var(--bg-panel-raised)] file:text-[var(--text-primary)] file:text-xs"
             />
           </div>
@@ -237,7 +258,11 @@ export default function GastosPage() {
                   }`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <FileText size={17} className="text-[var(--text-muted)] shrink-0" />
+                    {esExcel(g.tipoArchivo) ? (
+                      <FileSpreadsheet size={17} className="text-[var(--text-muted)] shrink-0" />
+                    ) : (
+                      <FileText size={17} className="text-[var(--text-muted)] shrink-0" />
+                    )}
                     <div className="min-w-0">
                       <p className="text-sm text-[var(--text-primary)] truncate">
                         {CATEGORIAS_GASTO[g.categoria]}
@@ -280,21 +305,7 @@ export default function GastosPage() {
         {/* Vista previa */}
         <div className="col-span-1">
           {previsualizando ? (
-            <div className="bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg overflow-hidden sticky top-8">
-              <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--border-subtle)]">
-                <span className="text-xs text-[var(--text-muted)] truncate">
-                  {previsualizando.nombreArchivo}
-                </span>
-                <button onClick={() => setPrevisualizando(null)}>
-                  <X size={14} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]" />
-                </button>
-              </div>
-              <iframe
-                src={`/api/gastos/${previsualizando.id}`}
-                className="w-full h-[500px] bg-white"
-                title="Vista previa del gasto"
-              />
-            </div>
+            <VistaPrevia gasto={previsualizando} onCerrar={() => setPrevisualizando(null)} />
           ) : (
             <div className="bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg p-6 text-center sticky top-8">
               <FileText size={24} className="mx-auto text-[var(--text-muted)] mb-2" />
@@ -305,6 +316,83 @@ export default function GastosPage() {
           )}
         </div>
       </div>
+
+      {mostrarImportar && (
+        <ImportarExcelModal
+          onClose={() => setMostrarImportar(false)}
+          onImportado={cargarGastos}
+        />
+      )}
+    </div>
+  );
+}
+
+function VistaPrevia({ gasto, onCerrar }: { gasto: Gasto; onCerrar: () => void }) {
+  const [filas, setFilas] = useState<string[][] | null>(null);
+  const [cargandoPreview, setCargandoPreview] = useState(false);
+
+  useEffect(() => {
+    let activo = true;
+    (async () => {
+      if (!esExcel(gasto.tipoArchivo)) {
+        if (activo) setFilas(null);
+        return;
+      }
+      setCargandoPreview(true);
+      const res = await fetch(`/api/gastos/${gasto.id}/preview`);
+      const data = await res.json();
+      if (!activo) return;
+      if (res.ok) setFilas(data.filas);
+      setCargandoPreview(false);
+    })();
+    return () => {
+      activo = false;
+    };
+  }, [gasto.id, gasto.tipoArchivo]);
+
+  return (
+    <div className="bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg overflow-hidden sticky top-8">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--border-subtle)]">
+        <span className="text-xs text-[var(--text-muted)] truncate">{gasto.nombreArchivo}</span>
+        <button onClick={onCerrar}>
+          <X size={14} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]" />
+        </button>
+      </div>
+
+      {esExcel(gasto.tipoArchivo) ? (
+        <div className="max-h-[500px] overflow-auto p-2">
+          {cargandoPreview ? (
+            <p className="text-xs text-[var(--text-muted)] p-3">Cargando vista previa...</p>
+          ) : filas && filas.length > 0 ? (
+            <table className="w-full text-xs">
+              <tbody>
+                {filas.map((fila, i) => (
+                  <tr
+                    key={i}
+                    className={`border-b border-[var(--border-subtle)] last:border-0 ${
+                      i === 0 ? "font-semibold text-[var(--text-primary)]" : "text-[var(--text-secondary)]"
+                    }`}
+                  >
+                    {fila.map((celda, j) => (
+                      <td key={j} className="px-2 py-1 whitespace-nowrap">
+                        {celda}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="text-xs text-[var(--text-muted)] p-3">Sin datos para mostrar.</p>
+          )}
+        </div>
+      ) : (
+        <iframe
+          src={`/api/gastos/${gasto.id}`}
+          className="w-full h-[500px] bg-white"
+          title="Vista previa del gasto"
+        />
+      )}
     </div>
   );
 }

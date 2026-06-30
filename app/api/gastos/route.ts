@@ -6,7 +6,11 @@ import { registrarActividad } from "@/lib/actividad";
 import { CATEGORIAS_GASTO } from "@/lib/constants";
 
 const MAX_FILE_SIZE = Number(process.env.MAX_FILE_SIZE) || 10 * 1024 * 1024;
-const ALLOWED_TYPES = ["application/pdf"];
+const ALLOWED_TYPES = [
+  "application/pdf",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+];
 
 // GET /api/gastos — lista gastos con filtros opcionales (solo administradores)
 export async function GET(req: NextRequest) {
@@ -84,7 +88,7 @@ export async function POST(req: NextRequest) {
     }
     if (!ALLOWED_TYPES.includes(file.type)) {
       return NextResponse.json(
-        { error: "Solo se permiten archivos PDF para los gastos" },
+        { error: "Solo se permiten archivos PDF o Excel para los gastos" },
         { status: 400 }
       );
     }
