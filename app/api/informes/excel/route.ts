@@ -91,10 +91,17 @@ export async function GET(req: NextRequest) {
     const buffer = await workbook.xlsx.writeBuffer();
     const fecha = new Date().toISOString().slice(0, 10);
 
-    return new NextResponse(buffer, {
+    // Convertimos explícitamente el Buffer de Node a Uint8Array: NextResponse
+    // espera tipos de la Web API estándar, y aunque Buffer es técnicamente
+    // compatible, esta conversión explícita evita cualquier ambigüedad de
+    // serialización al pasar por el proxy/runtime de producción.
+    const bytes = new Uint8Array(buffer);
+
+    return new NextResponse(bytes, {
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "Content-Disposition": `attachment; filename="informe-envios-${fecha}.xlsx"`,
+        "Content-Length": String(bytes.length),
       },
     });
   } catch (error) {

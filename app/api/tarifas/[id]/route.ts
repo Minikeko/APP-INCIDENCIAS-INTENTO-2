@@ -18,11 +18,14 @@ export async function GET(
       return NextResponse.json({ error: "Documento no encontrado" }, { status: 404 });
     }
 
-    return new NextResponse(documento.datos, {
+    const bytes = new Uint8Array(documento.datos);
+
+    return new NextResponse(bytes, {
       headers: {
         "Content-Type": documento.tipoArchivo,
         "Content-Disposition": `inline; filename="${encodeURIComponent(documento.nombreArchivo)}"`,
         "Cache-Control": "private, max-age=3600",
+        "Content-Length": String(bytes.length),
       },
     });
   } catch (error) {
