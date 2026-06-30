@@ -33,9 +33,15 @@ export function Sidebar() {
   const [user, setUser] = useState<SessionUser | null>(null);
 
   useEffect(() => {
-    fetch("/api/auth/me")
-      .then((r) => r.json())
-      .then((d) => setUser(d.user));
+    let activo = true;
+    (async () => {
+      const res = await fetch("/api/auth/me");
+      const data = await res.json();
+      if (activo) setUser(data.user);
+    })();
+    return () => {
+      activo = false;
+    };
   }, []);
 
   async function handleLogout() {
@@ -95,14 +101,21 @@ export function Sidebar() {
 
       <div className="px-3 py-4 border-t border-[var(--border-subtle)]">
         {user && (
-          <div className="px-3 mb-3">
+          <Link
+            href="/perfil"
+            className={`block px-3 py-2 mb-1 rounded-md transition-colors ${
+              pathname.startsWith("/perfil")
+                ? "bg-[var(--accent-dim)]"
+                : "hover:bg-[var(--bg-panel-raised)]"
+            }`}
+          >
             <p className="text-sm text-[var(--text-primary)] font-medium truncate">
               {user.nombre}
             </p>
             <p className="text-xs text-[var(--text-muted)] truncate">
-              {user.role === "ADMIN" ? "Administrador" : "Operador"}
+              {user.role === "ADMIN" ? "Administrador" : "Operador"} · Editar perfil
             </p>
-          </div>
+          </Link>
         )}
         <button
           onClick={handleLogout}
