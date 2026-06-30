@@ -89,14 +89,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer());
+    const datos = new Uint8Array(await file.arrayBuffer());
 
     const gasto = await prisma.gasto.create({
       data: {
         nombreArchivo: file.name,
         tipoArchivo: file.type,
         tamano: file.size,
-        datos: buffer,
+        datos,
         fecha: new Date(fechaRaw),
         importe: Number(importeRaw),
         categoria: categoria as keyof typeof CATEGORIAS_GASTO,

@@ -92,14 +92,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer());
+    const datos = new Uint8Array(await file.arrayBuffer());
 
     const documento = await prisma.documentoFactura.create({
       data: {
         nombreArchivo: file.name,
         tipoArchivo: file.type,
         tamano: file.size,
-        datos: buffer,
+        datos,
         mes,
         anio,
         clienteProveedor,

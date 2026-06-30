@@ -49,7 +49,7 @@ export async function POST(
       return NextResponse.json({ error: "Envío no encontrado" }, { status: 404 });
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer());
+    const datos = new Uint8Array(await file.arrayBuffer());
 
     const adjunto = await prisma.adjunto.create({
       data: {
@@ -57,7 +57,7 @@ export async function POST(
         nombreArchivo: file.name,
         tipoArchivo: file.type,
         tamano: file.size,
-        datos: buffer,
+        datos,
       },
       select: {
         id: true,
