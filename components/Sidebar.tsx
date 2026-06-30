@@ -43,6 +43,7 @@ const ADMIN_ITEMS = [
   { href: "/admin/facturacion", label: "Facturación", icon: Receipt },
   { href: "/admin/denuncias", label: "Denuncias", icon: ScrollText },
   { href: "/admin/gastos", label: "Gastos varios", icon: Wallet },
+  { href: "/admin/excel", label: "Archivos Excel", icon: FileSpreadsheet },
   { href: "/admin/actividad", label: "Registro de actividad", icon: History },
 ];
 
