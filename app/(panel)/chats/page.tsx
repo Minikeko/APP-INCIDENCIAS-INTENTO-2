@@ -1,14 +1,32 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { MessageSquare, Plus, Send, Users as UsersIcon, X } from "lucide-react";
+import {
+  MessageSquare,
+  Plus,
+  Send,
+  Users as UsersIcon,
+  X,
+  Trash2,
+  Smile,
+  Check,
+  CheckCheck,
+} from "lucide-react";
 import toast from "react-hot-toast";
+import dynamic from "next/dynamic";
+
+// emoji-mart se carga solo en el cliente (usa APIs del navegador)
+const EmojiPicker = dynamic(
+  () => import("@emoji-mart/react").then((mod) => mod.default),
+  { ssr: false }
+);
 
 interface Usuario {
   id: string;
   nombre: string;
   email: string;
   activo: boolean;
+  role: string;
 }
 
 interface Participante {
@@ -20,7 +38,7 @@ interface ChatResumen {
   tipo: "PRIVADO" | "GRUPAL";
   nombre: string | null;
   participantes: Participante[];
-  mensajes: { texto: string; createdAt: string; autor?: { nombre: string } }[];
+  mensajes: { texto: string; createdAt: string }[];
 }
 
 interface Mensaje {
@@ -28,26 +46,46 @@ interface Mensaje {
   texto: string;
   createdAt: string;
   autor: { id: string; nombre: string };
+  vistosPor: string[];
+}
+
+interface SesionUser {
+  userId: string;
+  nombre: string;
+  role: string;
 }
 
 const POLLING_INTERVAL_MS = 3500;
 
 export default function ChatsPage() {
-  const [me, setMe] = useState<{ userId: string; nombre: string } | null>(null);
+  const [me, setMe] = useState<SesionUser | null>(null);
   const [chats, setChats] = useState<ChatResumen[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [chatActivoId, setChatActivoId] = useState<string | null>(null);
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
   const [textoMensaje, setTextoMensaje] = useState("");
   const [mostrarNuevoChat, setMostrarNuevoChat] = useState(false);
+  const [mostrarEmojis, setMostrarEmojis] = useState(false);
   const [seleccionados, setSeleccionados] = useState<string[]>([]);
   const [nombreGrupo, setNombreGrupo] = useState("");
   const [loading, setLoading] = useState(true);
+  const [emojiData, setEmojiData] = useState<unknown>(null);
 
   const ultimaFechaRef = useRef<string | null>(null);
   const mensajesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Carga inicial: usuario actual, chats y lista de usuarios para crear chats
+  // Cargar datos de emoji-mart solo en cliente
+  useEffect(() => {
+    let activo = true;
+    (async () => {
+      const data = await import("@emoji-mart/data");
+      if (activo) setEmojiData(data.default);
+    })();
+    return () => { activo = false; };
+  }, []);
+
+  // Carga inicial
   useEffect(() => {
     let activo = true;
     (async () => {
@@ -62,9 +100,7 @@ export default function ChatsPage() {
       setUsuarios((usuariosData.usuarios || []).filter((u: Usuario) => u.activo));
       setLoading(false);
     })();
-    return () => {
-      activo = false;
-    };
+    return () => { activo = false; };
   }, []);
 
   const cargarChats = useCallback(async () => {
@@ -80,13 +116,8 @@ export default function ChatsPage() {
       const data = await res.json();
       if (activo && res.ok) setChats(data.chats);
     })();
-    const interval = setInterval(() => {
-      void cargarChats();
-    }, POLLING_INTERVAL_MS);
-    return () => {
-      activo = false;
-      clearInterval(interval);
-    };
+    const interval = setInterval(() => { void cargarChats(); }, POLLING_INTERVAL_MS);
+    return () => { activo = false; clearInterval(interval); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -106,7 +137,16 @@ export default function ChatsPage() {
       if (esPrimeraCarga) {
         setMensajes(data.mensajes);
       } else if (data.mensajes.length > 0) {
-        setMensajes((prev) => [...prev, ...data.mensajes]);
+        setMensajes((prev) => {
+          // Actualizar vistosPor de mensajes existentes + añadir nuevos
+          const idsExistentes = new Set(prev.map((m) => m.id));
+          const nuevos = data.mensajes.filter((m: Mensaje) => !idsExistentes.has(m.id));
+          const actualizados = prev.map((m) => {
+            const actualizado = data.mensajes.find((nm: Mensaje) => nm.id === m.id);
+            return actualizado || m;
+          });
+          return [...actualizados, ...nuevos];
+        });
       }
       if (data.mensajes.length > 0) {
         ultimaFechaRef.current = data.mensajes[data.mensajes.length - 1].createdAt;
@@ -115,10 +155,7 @@ export default function ChatsPage() {
 
     void cargarMensajes(true);
     const interval = setInterval(() => cargarMensajes(false), POLLING_INTERVAL_MS);
-    return () => {
-      activo = false;
-      clearInterval(interval);
-    };
+    return () => { activo = false; clearInterval(interval); };
   }, [chatActivoId]);
 
   useEffect(() => {
@@ -130,6 +167,7 @@ export default function ChatsPage() {
     if (!textoMensaje.trim() || !chatActivoId) return;
     const texto = textoMensaje;
     setTextoMensaje("");
+    setMostrarEmojis(false);
     try {
       const res = await fetch(`/api/chats/${chatActivoId}/mensajes`, {
         method: "POST",
@@ -179,6 +217,26 @@ export default function ChatsPage() {
     }
   }
 
+  async function handleEliminarChat(chatId: string) {
+    if (!confirm("¿Eliminar este chat y todos sus mensajes?")) return;
+    const res = await fetch(`/api/chats/${chatId}`, { method: "DELETE" });
+    if (res.ok) {
+      toast.success("Chat eliminado");
+      if (chatActivoId === chatId) {
+        setChatActivoId(null);
+        setMensajes([]);
+      }
+      cargarChats();
+    } else {
+      toast.error("Error al eliminar el chat");
+    }
+  }
+
+  function añadirEmoji(emoji: { native: string }) {
+    setTextoMensaje((prev) => prev + emoji.native);
+    inputRef.current?.focus();
+  }
+
   function nombreDeChat(chat: ChatResumen): string {
     if (chat.tipo === "GRUPAL") {
       return chat.nombre || chat.participantes.map((p) => p.user.nombre).join(", ");
@@ -192,6 +250,17 @@ export default function ChatsPage() {
       prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
     );
   }
+
+  // ✓✓: todos los participantes del chat (excepto el autor) han visto el mensaje
+  function mensajeLeido(mensaje: Mensaje, chatActivo: ChatResumen): boolean {
+    if (mensaje.autor.id !== me?.userId) return false;
+    const otrosParticipantes = chatActivo.participantes
+      .map((p) => p.user.id)
+      .filter((id) => id !== me?.userId);
+    return otrosParticipantes.every((id) => mensaje.vistosPor.includes(id));
+  }
+
+  const esAdmin = me?.role === "ADMIN";
 
   if (loading) {
     return <div className="p-8 text-[var(--text-secondary)]">Cargando...</div>;
@@ -225,29 +294,41 @@ export default function ChatsPage() {
             </p>
           ) : (
             chats.map((chat) => (
-              <button
+              <div
                 key={chat.id}
-                onClick={() => setChatActivoId(chat.id)}
-                className={`w-full text-left px-5 py-3 border-b border-[var(--border-subtle)] transition-colors ${
+                className={`group flex items-center border-b border-[var(--border-subtle)] transition-colors ${
                   chatActivoId === chat.id
                     ? "bg-[var(--accent-dim)]"
                     : "hover:bg-[var(--bg-panel-raised)]"
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  {chat.tipo === "GRUPAL" && (
-                    <UsersIcon size={13} className="text-[var(--text-muted)] shrink-0" />
+                <button
+                  onClick={() => setChatActivoId(chat.id)}
+                  className="flex-1 text-left px-4 py-3 min-w-0"
+                >
+                  <div className="flex items-center gap-2">
+                    {chat.tipo === "GRUPAL" && (
+                      <UsersIcon size={13} className="text-[var(--text-muted)] shrink-0" />
+                    )}
+                    <p className="text-sm text-[var(--text-primary)] font-medium truncate">
+                      {nombreDeChat(chat)}
+                    </p>
+                  </div>
+                  {chat.mensajes[0] && (
+                    <p className="text-xs text-[var(--text-muted)] truncate mt-0.5">
+                      {chat.mensajes[0].texto}
+                    </p>
                   )}
-                  <p className="text-sm text-[var(--text-primary)] font-medium truncate">
-                    {nombreDeChat(chat)}
-                  </p>
-                </div>
-                {chat.mensajes[0] && (
-                  <p className="text-xs text-[var(--text-muted)] truncate mt-0.5">
-                    {chat.mensajes[0].texto}
-                  </p>
+                </button>
+                {esAdmin && (
+                  <button
+                    onClick={() => handleEliminarChat(chat.id)}
+                    className="shrink-0 pr-3 opacity-0 group-hover:opacity-100 text-[var(--text-muted)] hover:text-[var(--status-perdido)] transition-all"
+                  >
+                    <Trash2 size={14} />
+                  </button>
                 )}
-              </button>
+              </div>
             ))
           )}
         </div>
@@ -272,9 +353,10 @@ export default function ChatsPage() {
               )}
             </div>
 
-            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
               {mensajes.map((m) => {
                 const esMio = m.autor.id === me?.userId;
+                const leido = mensajeLeido(m, chatActivo);
                 return (
                   <div key={m.id} className={`flex ${esMio ? "justify-end" : "justify-start"}`}>
                     <div
@@ -287,13 +369,20 @@ export default function ChatsPage() {
                       {!esMio && chatActivo.tipo === "GRUPAL" && (
                         <p className="text-xs font-semibold mb-0.5 opacity-70">{m.autor.nombre}</p>
                       )}
-                      <p>{m.texto}</p>
-                      <p className={`text-[10px] mt-1 ${esMio ? "opacity-60" : "text-[var(--text-muted)]"}`}>
-                        {new Date(m.createdAt).toLocaleTimeString("es-ES", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </p>
+                      <p className="whitespace-pre-wrap break-words">{m.texto}</p>
+                      <div className={`flex items-center gap-1 mt-1 ${esMio ? "justify-end" : ""}`}>
+                        <p className={`text-[10px] ${esMio ? "opacity-60" : "text-[var(--text-muted)]"}`}>
+                          {new Date(m.createdAt).toLocaleTimeString("es-ES", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </p>
+                        {esMio && (
+                          leido
+                            ? <CheckCheck size={12} className="opacity-80" />
+                            : <Check size={12} className="opacity-50" />
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
@@ -301,11 +390,38 @@ export default function ChatsPage() {
               <div ref={mensajesEndRef} />
             </div>
 
+            {/* Selector de emojis */}
+            {mostrarEmojis && emojiData && (
+              <div className="px-6 pb-2">
+                <EmojiPicker
+                  data={emojiData}
+                  onEmojiSelect={añadirEmoji}
+                  locale="es"
+                  theme="dark"
+                  previewPosition="none"
+                  skinTonePosition="none"
+                  maxFrequentRows={2}
+                />
+              </div>
+            )}
+
             <form
               onSubmit={handleEnviarMensaje}
-              className="px-6 py-4 border-t border-[var(--border-subtle)] bg-[var(--bg-panel)] flex gap-2"
+              className="px-6 py-4 border-t border-[var(--border-subtle)] bg-[var(--bg-panel)] flex gap-2 items-center"
             >
+              <button
+                type="button"
+                onClick={() => setMostrarEmojis((v) => !v)}
+                className={`shrink-0 transition-colors ${
+                  mostrarEmojis
+                    ? "text-[var(--accent)]"
+                    : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                }`}
+              >
+                <Smile size={20} />
+              </button>
               <input
+                ref={inputRef}
                 value={textoMensaje}
                 onChange={(e) => setTextoMensaje(e.target.value)}
                 placeholder="Escribe un mensaje..."
@@ -313,7 +429,7 @@ export default function ChatsPage() {
               />
               <button
                 type="submit"
-                className="bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[#1a1408] rounded-md px-4 transition-colors"
+                className="bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[#1a1408] rounded-md px-4 py-2 transition-colors"
               >
                 <Send size={16} />
               </button>

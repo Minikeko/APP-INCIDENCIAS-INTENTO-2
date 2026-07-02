@@ -10,7 +10,10 @@ export async function GET() {
     const user = await requireUser();
 
     const chats = await prisma.chat.findMany({
-      where: { participantes: { some: { userId: user.userId } } },
+      where: {
+        eliminado: false,
+        participantes: { some: { userId: user.userId } },
+      },
       include: {
         participantes: { include: { user: { select: { id: true, nombre: true } } } },
         mensajes: {

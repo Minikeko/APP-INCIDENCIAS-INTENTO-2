@@ -46,6 +46,7 @@ model User {
   chatsParticipante ChatParticipante[]
   mensajes        Mensaje[]
   archivosExcel   ArchivoExcel[]
+  mensajesVistos  MensajeVisto[]
 }
 
 model Envio {
@@ -273,7 +274,8 @@ enum TipoChat {
 model Chat {
   id        String   @id @default(cuid())
   tipo      TipoChat
-  nombre    String?  // solo relevante para chats grupales
+  nombre    String?
+  eliminado Boolean  @default(false)
   createdAt DateTime @default(now())
 
   participantes ChatParticipante[]
@@ -300,8 +302,23 @@ model Mensaje {
 
   autorId   String
   autor     User     @relation(fields: [autorId], references: [id])
+  vistos    MensajeVisto[]
 
   @@index([chatId, createdAt])
+}
+
+// Registra quién ha visto cada mensaje (para los ✓✓ de leído)
+model MensajeVisto {
+  id        String   @id @default(cuid())
+  mensajeId String
+  mensaje   Mensaje  @relation(fields: [mensajeId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  vistoPor  DateTime @default(now())
+
+  @@unique([mensajeId, userId])
+  @@index([mensajeId])
+  @@index([userId])
 }
 
 // ===== Archivos Excel =====
