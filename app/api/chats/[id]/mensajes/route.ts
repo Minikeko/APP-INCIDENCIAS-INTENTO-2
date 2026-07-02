@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { handleApiError } from "@/lib/api-error";
+import { crearNotificaciones } from "@/lib/notificaciones";
 
 async function verificarParticipante(chatId: string, userId: string) {
   const participante = await prisma.chatParticipante.findUnique({
@@ -103,7 +104,44 @@ export async function POST(
       include: {
         autor: { select: { id: true, nombre: true } },
         vistos: { select: { userId: true } },
+        chat: { include: { participantes: { select: { userId: true } } } },
       },
+    });
+
+    // Notificar a los demás participantes
+    const participantesIds = mensaje.chat.participantes.map((p: { userId: string }) => p.userId);
+    const textoCorto = texto.trim().slice(0, 60) + (texto.trim().length > 60 ? "..." : "");
+
+    // Detectar menciones @nombre
+    const menciones = [...texto.matchAll(/@(\w+)/g)].map((m) => m[1].toLowerCase());
+    if (menciones.length > 0) {
+      const usuariosMencionados = await prisma.user.findMany({
+        where: {
+          nombre: { in: menciones, mode: "insensitive" },
+          id: { in: participantesIds },
+        },
+        select: { id: true },
+      });
+      if (usuariosMencionados.length > 0) {
+        await crearNotificaciones({
+          tipo: "MENCION",
+          titulo: `${user.nombre} te mencionó`,
+          cuerpo: textoCorto,
+          url: `/chats`,
+          usuarioIds: usuariosMencionados.map((u: { id: string }) => u.id),
+          excluyendo: user.userId,
+        });
+      }
+    }
+
+    // Notificación de mensaje nuevo al resto
+    await crearNotificaciones({
+      tipo: "MENSAJE_NUEVO",
+      titulo: `Mensaje de ${user.nombre}`,
+      cuerpo: textoCorto,
+      url: `/chats`,
+      usuarioIds: participantesIds,
+      excluyendo: user.userId,
     });
 
     return NextResponse.json({

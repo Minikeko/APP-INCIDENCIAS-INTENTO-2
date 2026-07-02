@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
-:root {
+:root,
+[data-theme="dark"] {
   /* Fondo y superficies — gris carbón, sala de control */
   --bg-base: #14161a;
   --bg-panel: #1c1f26;
@@ -28,6 +29,36 @@
   --status-entregado: #4ade80;
   --status-devuelto: #94a3b8;
   --status-resuelto: #4ade80;
+
+  --font-display: "Oswald", sans-serif;
+  --font-body: "IBM Plex Sans", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+[data-theme="light"] {
+  --bg-base: #f4f5f7;
+  --bg-panel: #ffffff;
+  --bg-panel-raised: #f0f1f3;
+  --border-subtle: #e2e4e9;
+  --border-strong: #c8ccd6;
+
+  --text-primary: #1a1d24;
+  --text-secondary: #4b5060;
+  --text-muted: #8a90a0;
+
+  --accent: #c47d1a;
+  --accent-hover: #a86612;
+  --accent-dim: #fdf0d9;
+
+  --status-transito: #2f7fc0;
+  --status-retrasado: #d4960a;
+  --status-perdido: #dc2626;
+  --status-investigacion: #9333ea;
+  --status-encontrado: #0284c7;
+  --status-mal-entregado: #ea580c;
+  --status-entregado: #16a34a;
+  --status-devuelto: #64748b;
+  --status-resuelto: #16a34a;
 
   --font-display: "Oswald", sans-serif;
   --font-body: "IBM Plex Sans", sans-serif;

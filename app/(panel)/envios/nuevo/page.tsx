@@ -18,6 +18,7 @@ export default function NuevoEnvioPage() {
     direccion: "",
     fechaEnvio: "",
     fechaInforme: "",
+    responsable: "",
   });
 
   function update(field: string, value: string) {
@@ -145,6 +146,15 @@ export default function NuevoEnvioPage() {
             />
           </Field>
         </div>
+
+        <Field label="Responsable (quién lleva el caso)">
+          <input
+            value={form.responsable}
+            onChange={(e) => update("responsable", e.target.value)}
+            placeholder="Nombre del responsable (opcional)"
+            className="input"
+          />
+        </Field>
 
         <div className="flex gap-3 pt-2">
           <button

@@ -35,7 +35,15 @@ model User {
   activo       Boolean  @default(true)
   createdAt    DateTime @default(now())
 
+  // Avatar: datos de imagen guardados en BD (null = usar iniciales)
+  avatarDatos  Bytes?
+  avatarTipo   String?
+
+  // Preferencias de usuario (tema, notificaciones silenciadas, etc.)
+  preferencias PreferenciaUsuario?
+
   envios          Envio[]            @relation("CreadoPor")
+  enviosAsignados Envio[]            @relation("AsignadoA")
   cambiosEstado   CambioEstado[]
   comentarios     Comentario[]
   documentosTarifa  DocumentoTarifa[]
@@ -47,6 +55,8 @@ model User {
   mensajes        Mensaje[]
   archivosExcel   ArchivoExcel[]
   mensajesVistos  MensajeVisto[]
+  notificaciones  Notificacion[]
+  reacciones      Reaccion[]
 }
 
 enum ColumnaTablero {
@@ -61,18 +71,21 @@ model Envio {
   numeroSeguimiento String @unique
   mensajero       String
   estado          EstadoEnvio @default(EN_TRANSITO)
-  motivo          String?     // motivo del problema (ej. "extraviado en tránsito")
+  motivo          String?
   descripcion     String?     @db.Text
   destinatario    String?
   direccion       String?
   fechaEnvio      DateTime?
-  fechaInforme    DateTime?   // fecha en la que se informó de la incidencia
+  fechaInforme    DateTime?
   columnaTablero  ColumnaTablero @default(PENDIENTE)
+  responsable     String?     // campo informativo libre de quién lleva el caso
   ultimaActualizacion DateTime @updatedAt
   createdAt       DateTime @default(now())
 
   creadoPorId     String
   creadoPor       User     @relation("CreadoPor", fields: [creadoPorId], references: [id])
+  asignadoAId     String?
+  asignadoA       User?    @relation("AsignadoA", fields: [asignadoAId], references: [id])
 
   cambiosEstado   CambioEstado[]
   adjuntos        Adjunto[]
@@ -82,6 +95,7 @@ model Envio {
   @@index([estado])
   @@index([mensajero])
   @@index([numeroSeguimiento])
+  @@index([asignadoAId])
 }
 
 model CambioEstado {
@@ -305,8 +319,9 @@ model Mensaje {
   id        String   @id @default(cuid())
   chatId    String
   chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
-  texto     String?  @db.Text  // ahora opcional (puede ser solo adjunto)
-  // Adjunto opcional — guardado en BD igual que los adjuntos de envíos
+  texto     String?  @db.Text
+  editado   Boolean  @default(false)
+  editadoAt DateTime?
   adjuntoNombre String?
   adjuntoTipo   String?
   adjuntoDatos  Bytes?
@@ -315,6 +330,7 @@ model Mensaje {
   autorId   String
   autor     User     @relation(fields: [autorId], references: [id])
   vistos    MensajeVisto[]
+  reacciones Reaccion[]
 
   @@index([chatId, createdAt])
 }
@@ -348,4 +364,52 @@ model ArchivoExcel {
   subidoPor     User     @relation(fields: [subidoPorId], references: [id])
 
   @@index([createdAt])
+}
+
+// ===== Preferencias de usuario =====
+model PreferenciaUsuario {
+  id                        String   @id @default(cuid())
+  userId                    String   @unique
+  user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tema                      String   @default("dark")
+  notificacionesSilenciadas String   @default("[]")
+  updatedAt                 DateTime @updatedAt
+}
+
+enum TipoNotificacion {
+  MENSAJE_NUEVO
+  MENCION
+  ESTADO_ENVIO_CAMBIADO
+  ENVIO_ASIGNADO
+}
+
+// ===== Notificaciones =====
+model Notificacion {
+  id        String           @id @default(cuid())
+  tipo      TipoNotificacion
+  titulo    String
+  cuerpo    String
+  leida     Boolean          @default(false)
+  url       String?
+  createdAt DateTime         @default(now())
+
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, leida])
+  @@index([createdAt])
+}
+
+// ===== Reacciones a mensajes =====
+model Reaccion {
+  id        String   @id @default(cuid())
+  mensajeId String
+  mensaje   Mensaje  @relation(fields: [mensajeId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emoji     String
+  createdAt DateTime @default(now())
+
+  @@unique([mensajeId, userId, emoji])
+  @@index([mensajeId])
 }

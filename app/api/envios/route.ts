@@ -5,7 +5,7 @@ import { handleApiError } from "@/lib/api-error";
 import { registrarActividad } from "@/lib/actividad";
 import { Prisma } from "@prisma/client";
 
-// GET /api/envios — lista envíos con filtros opcionales
+// GET /api/envios — lista envíos con filtros opcionales y paginación
 export async function GET(req: NextRequest) {
   try {
     await requireUser();
@@ -14,6 +14,8 @@ export async function GET(req: NextRequest) {
     const estado = searchParams.get("estado");
     const mensajero = searchParams.get("mensajero");
     const busqueda = searchParams.get("q");
+    const pagina = Math.max(1, Number(searchParams.get("pagina") || "1"));
+    const porPagina = Math.min(200, Math.max(10, Number(searchParams.get("porPagina") || "50")));
 
     const where: Prisma.EnvioWhereInput = {};
 
@@ -28,19 +30,32 @@ export async function GET(req: NextRequest) {
         { numeroSeguimiento: { contains: busqueda, mode: "insensitive" } },
         { destinatario: { contains: busqueda, mode: "insensitive" } },
         { descripcion: { contains: busqueda, mode: "insensitive" } },
+        { responsable: { contains: busqueda, mode: "insensitive" } },
       ];
     }
 
-    const envios = await prisma.envio.findMany({
-      where,
-      orderBy: { ultimaActualizacion: "desc" },
-      include: {
-        creadoPor: { select: { nombre: true } },
-        _count: { select: { adjuntos: true, comentarios: true } },
-      },
-    });
+    const [envios, total] = await Promise.all([
+      prisma.envio.findMany({
+        where,
+        orderBy: { ultimaActualizacion: "desc" },
+        skip: (pagina - 1) * porPagina,
+        take: porPagina,
+        include: {
+          creadoPor: { select: { nombre: true } },
+          asignadoA: { select: { nombre: true } },
+          _count: { select: { adjuntos: true, comentarios: true } },
+        },
+      }),
+      prisma.envio.count({ where }),
+    ]);
 
-    return NextResponse.json({ envios });
+    return NextResponse.json({
+      envios,
+      total,
+      pagina,
+      porPagina,
+      totalPaginas: Math.ceil(total / porPagina),
+    });
   } catch (error) {
     return handleApiError(error);
   }
@@ -62,6 +77,7 @@ export async function POST(req: NextRequest) {
       direccion,
       fechaEnvio,
       fechaInforme,
+      responsable,
     } = body;
 
     if (!numeroSeguimiento || !mensajero) {
@@ -92,6 +108,7 @@ export async function POST(req: NextRequest) {
         direccion: direccion?.trim() || null,
         fechaEnvio: fechaEnvio ? new Date(fechaEnvio) : null,
         fechaInforme: fechaInforme ? new Date(fechaInforme) : null,
+        responsable: responsable?.trim() || null,
         creadoPorId: user.userId,
         cambiosEstado: {
           create: {

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { handleApiError } from "@/lib/api-error";
 import { registrarActividad } from "@/lib/actividad";
+import { crearNotificaciones } from "@/lib/notificaciones";
 import { ESTADOS, EstadoKey } from "@/lib/constants";
 
 // POST /api/envios/[id]/estado — cambia el estado y registra el histórico
@@ -49,6 +50,20 @@ export async function POST(
       descripcion: `${user.nombre} cambió el estado de ${envio.numeroSeguimiento} a "${etiquetaEstado}"`,
       usuarioId: user.userId,
       entidadId: envio.id,
+    });
+
+    // Notificar a todos los usuarios activos
+    const usuariosActivos = await prisma.user.findMany({
+      where: { activo: true },
+      select: { id: true },
+    });
+    await crearNotificaciones({
+      tipo: "ESTADO_ENVIO_CAMBIADO",
+      titulo: `${envio.numeroSeguimiento} → ${etiquetaEstado}`,
+      cuerpo: `${user.nombre} actualizó el estado del envío`,
+      url: `/envios/${envio.id}`,
+      usuarioIds: usuariosActivos.map((u: { id: string }) => u.id),
+      excluyendo: user.userId,
     });
 
     return NextResponse.json({ envio });
