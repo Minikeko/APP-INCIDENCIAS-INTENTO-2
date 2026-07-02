@@ -18,6 +18,7 @@ import {
   MessageSquare,
   ScrollText,
   Wallet,
+  Kanban,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -30,6 +31,7 @@ interface SessionUser {
 
 const NAV_ITEMS = [
   { href: "/", label: "Envíos", icon: LayoutGrid },
+  { href: "/tablero", label: "Tablero", icon: Kanban },
   { href: "/envios/nuevo", label: "Nuevo envío", icon: PlusCircle },
   { href: "/alertas", label: "Alertas", icon: BellRing },
   { href: "/informes", label: "Informes", icon: FileBarChart },

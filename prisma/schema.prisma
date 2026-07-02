@@ -49,6 +49,13 @@ model User {
   mensajesVistos  MensajeVisto[]
 }
 
+enum ColumnaTablero {
+  PENDIENTE
+  SE_ACEPTA
+  NO_SE_ACEPTA
+  SOLUCIONADO
+}
+
 model Envio {
   id              String   @id @default(cuid())
   numeroSeguimiento String @unique
@@ -60,6 +67,7 @@ model Envio {
   direccion       String?
   fechaEnvio      DateTime?
   fechaInforme    DateTime?   // fecha en la que se informó de la incidencia
+  columnaTablero  ColumnaTablero @default(PENDIENTE)
   ultimaActualizacion DateTime @updatedAt
   createdAt       DateTime @default(now())
 
@@ -297,7 +305,11 @@ model Mensaje {
   id        String   @id @default(cuid())
   chatId    String
   chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
-  texto     String   @db.Text
+  texto     String?  @db.Text  // ahora opcional (puede ser solo adjunto)
+  // Adjunto opcional — guardado en BD igual que los adjuntos de envíos
+  adjuntoNombre String?
+  adjuntoTipo   String?
+  adjuntoDatos  Bytes?
   createdAt DateTime @default(now())
 
   autorId   String

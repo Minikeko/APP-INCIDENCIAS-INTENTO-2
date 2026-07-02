@@ -42,7 +42,7 @@ export async function POST(
     const mensaje = await prisma.mensaje.create({
       data: {
         chatId: id,
-        texto: texto ?? null,
+        ...(texto ? { texto } : {}),
         adjuntoNombre: file.name,
         adjuntoTipo: file.type || "application/octet-stream",
         adjuntoDatos,
