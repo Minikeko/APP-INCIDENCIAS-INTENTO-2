@@ -187,7 +187,7 @@ export function Sidebar() {
               </button>
 
               {mostrarNotif && (
-                <div className="absolute left-0 top-7 z-50 w-80 bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg shadow-2xl overflow-hidden">
+                <div className="fixed left-64 top-16 z-50 w-80 bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-xl shadow-2xl overflow-hidden" style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.4)" }}>
                   <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-subtle)]">
                     <span className="text-sm font-semibold text-[var(--text-primary)]">Notificaciones</span>
                     <div className="flex items-center gap-2">
