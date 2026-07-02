@@ -4,10 +4,6 @@ import { requireAdmin } from "@/lib/session";
 import { handleApiError } from "@/lib/api-error";
 
 const MAX_FILE_SIZE = Number(process.env.MAX_FILE_SIZE) || 10 * 1024 * 1024;
-const ALLOWED_TYPES = [
-  "application/vnd.ms-excel",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-];
 
 // GET /api/excel — lista todos los archivos Excel subidos (solo administradores)
 export async function GET() {
@@ -47,12 +43,6 @@ export async function POST(req: NextRequest) {
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
         { error: `El archivo supera el tamaño máximo (${Math.round(MAX_FILE_SIZE / 1024 / 1024)}MB)` },
-        { status: 400 }
-      );
-    }
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      return NextResponse.json(
-        { error: "Solo se permiten archivos Excel (.xlsx, .xls)" },
         { status: 400 }
       );
     }

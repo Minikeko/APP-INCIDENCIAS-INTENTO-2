@@ -11,6 +11,9 @@ import {
   Smile,
   Check,
   CheckCheck,
+  Paperclip,
+  FileText,
+  Image as ImageIcon,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { EmojiPickerPropio } from "@/components/EmojiPicker";
@@ -32,12 +35,15 @@ interface ChatResumen {
   tipo: "PRIVADO" | "GRUPAL";
   nombre: string | null;
   participantes: Participante[];
-  mensajes: { texto: string; createdAt: string }[];
+  mensajes: { texto: string | null; createdAt: string }[];
 }
 
 interface Mensaje {
   id: string;
-  texto: string;
+  texto: string | null;
+  adjuntoNombre: string | null;
+  adjuntoTipo: string | null;
+  tieneAdjunto: boolean;
   createdAt: string;
   autor: { id: string; nombre: string };
   vistosPor: string[];
@@ -67,6 +73,7 @@ export default function ChatsPage() {
   const ultimaFechaRef = useRef<string | null>(null);
   const mensajesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Carga inicial
   useEffect(() => {
@@ -215,6 +222,28 @@ export default function ChatsPage() {
     }
   }
 
+  async function handleEnviarAdjunto(file: File) {
+    if (!chatActivoId) return;
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`/api/chats/${chatActivoId}/adjunto`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setMensajes((prev) => [...prev, data.mensaje]);
+        ultimaFechaRef.current = data.mensaje.createdAt;
+        cargarChats();
+      } else {
+        toast.error(data.error || "Error al enviar el archivo");
+      }
+    } catch {
+      toast.error("Error de conexión");
+    }
+  }
+
   function nombreDeChat(chat: ChatResumen): string {
     if (chat.tipo === "GRUPAL") {
       return chat.nombre || chat.participantes.map((p) => p.user.nombre).join(", ");
@@ -335,6 +364,7 @@ export default function ChatsPage() {
               {mensajes.map((m) => {
                 const esMio = m.autor.id === me?.userId;
                 const leido = mensajeLeido(m, chatActivo);
+                const esImagen = m.adjuntoTipo?.startsWith("image/");
                 return (
                   <div key={m.id} className={`flex ${esMio ? "justify-end" : "justify-start"}`}>
                     <div
@@ -347,7 +377,22 @@ export default function ChatsPage() {
                       {!esMio && chatActivo.tipo === "GRUPAL" && (
                         <p className="text-xs font-semibold mb-0.5 opacity-70">{m.autor.nombre}</p>
                       )}
-                      <p className="whitespace-pre-wrap break-words">{m.texto}</p>
+                      {m.texto && (
+                        <p className="whitespace-pre-wrap break-words">{m.texto}</p>
+                      )}
+                      {m.tieneAdjunto && m.adjuntoNombre && (
+                        <a
+                          href={`/api/mensajes/${m.id}/adjunto`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`flex items-center gap-2 mt-1.5 rounded px-2 py-1.5 text-xs hover:opacity-80 transition-opacity ${
+                            esMio ? "bg-black/10" : "bg-[var(--bg-panel-raised)]"
+                          }`}
+                        >
+                          {esImagen ? <ImageIcon size={14} /> : <FileText size={14} />}
+                          <span className="truncate max-w-[160px]">{m.adjuntoNombre}</span>
+                        </a>
+                      )}
                       <div className={`flex items-center gap-1 mt-1 ${esMio ? "justify-end" : ""}`}>
                         <p className={`text-[10px] ${esMio ? "opacity-60" : "text-[var(--text-muted)]"}`}>
                           {new Date(m.createdAt).toLocaleTimeString("es-ES", {
@@ -381,10 +426,30 @@ export default function ChatsPage() {
               )}
             </div>
 
+            {/* Input oculto para adjuntos */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleEnviarAdjunto(file);
+                if (fileInputRef.current) fileInputRef.current.value = "";
+              }}
+            />
+
             <form
               onSubmit={handleEnviarMensaje}
               className="px-6 py-4 border-t border-[var(--border-subtle)] bg-[var(--bg-panel)] flex gap-2 items-center"
             >
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="shrink-0 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+                title="Adjuntar archivo"
+              >
+                <Paperclip size={20} />
+              </button>
               <button
                 type="button"
                 onClick={() => setMostrarEmojis((v) => !v)}

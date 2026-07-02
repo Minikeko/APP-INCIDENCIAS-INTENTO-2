@@ -37,6 +37,7 @@ export async function GET(
         autor: { select: { id: true, nombre: true } },
         vistos: { select: { userId: true } },
       },
+      // No incluimos adjuntoDatos (bytes) para no sobrecargar el polling
     });
 
     // Registrar como vistos los mensajes que no son del propio usuario
@@ -60,6 +61,9 @@ export async function GET(
     const mensajesConVistos = mensajes.map((m: MensajeConVistos) => ({
       id: m.id,
       texto: m.texto,
+      adjuntoNombre: m.adjuntoNombre,
+      adjuntoTipo: m.adjuntoTipo,
+      tieneAdjunto: !!m.adjuntoNombre,
       createdAt: m.createdAt,
       autor: m.autor,
       vistosPor: m.vistos.map((v: (typeof m.vistos)[number]) => v.userId),

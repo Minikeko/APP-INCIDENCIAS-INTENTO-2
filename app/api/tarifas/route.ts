@@ -5,16 +5,6 @@ import { handleApiError } from "@/lib/api-error";
 import { registrarActividad } from "@/lib/actividad";
 
 const MAX_FILE_SIZE = Number(process.env.MAX_FILE_SIZE) || 10 * 1024 * 1024;
-const ALLOWED_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.ms-excel",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-];
 
 // GET /api/tarifas — lista documentos de tarifas (solo administradores)
 export async function GET(req: NextRequest) {
@@ -67,12 +57,6 @@ export async function POST(req: NextRequest) {
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
         { error: `El archivo supera el tamaño máximo permitido (${Math.round(MAX_FILE_SIZE / 1024 / 1024)}MB)` },
-        { status: 400 }
-      );
-    }
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      return NextResponse.json(
-        { error: "Tipo de archivo no permitido. Usa imágenes, PDF, Word o Excel." },
         { status: 400 }
       );
     }

@@ -113,7 +113,7 @@ export default function ExcelPage() {
               ref={fileInputRef}
               type="file"
               required
-              accept=".xlsx,.xls"
+              accept="*/*"
               className="w-full text-xs text-[var(--text-secondary)] file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-[var(--bg-panel-raised)] file:text-[var(--text-primary)] file:text-xs"
             />
             <input

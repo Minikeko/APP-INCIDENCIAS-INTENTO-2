@@ -5,16 +5,6 @@ import { handleApiError } from "@/lib/api-error";
 import { registrarActividad } from "@/lib/actividad";
 
 const MAX_FILE_SIZE = Number(process.env.MAX_FILE_SIZE) || 10 * 1024 * 1024;
-const ALLOWED_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.ms-excel",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-];
 
 // GET /api/facturas — lista documentos de facturación (solo administradores)
 export async function GET(req: NextRequest) {
@@ -85,13 +75,6 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      return NextResponse.json(
-        { error: "Tipo de archivo no permitido. Usa imágenes, PDF, Word o Excel." },
-        { status: 400 }
-      );
-    }
-
     const arrayBuffer = await file.arrayBuffer();
     const datos: Uint8Array<ArrayBuffer> = new Uint8Array(arrayBuffer);
 

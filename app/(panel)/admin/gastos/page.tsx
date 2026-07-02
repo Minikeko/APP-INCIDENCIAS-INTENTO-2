@@ -220,7 +220,7 @@ export default function GastosPage() {
               ref={fileInputRef}
               type="file"
               required
-              accept="application/pdf,.xlsx,.xls"
+              accept="*/*"
               className="w-full text-sm text-[var(--text-secondary)] file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-[var(--bg-panel-raised)] file:text-[var(--text-primary)] file:text-xs"
             />
           </div>

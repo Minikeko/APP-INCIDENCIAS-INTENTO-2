@@ -405,7 +405,7 @@ export default function DetalleEnvioPage() {
                 type="file"
                 onChange={handleArchivoSeleccionado}
                 className="hidden"
-                accept="image/*,.pdf,.doc,.docx"
+                accept="*/*"
               />
             </div>
             {envio.adjuntos.length === 0 ? (
