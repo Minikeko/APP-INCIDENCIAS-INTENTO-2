@@ -13,13 +13,7 @@ import {
   CheckCheck,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import dynamic from "next/dynamic";
-
-// emoji-mart se carga solo en el cliente (usa APIs del navegador)
-const EmojiPicker = dynamic(
-  () => import("@emoji-mart/react").then((mod) => mod.default),
-  { ssr: false }
-);
+import { EmojiPickerPropio } from "@/components/EmojiPicker";
 
 interface Usuario {
   id: string;
@@ -69,21 +63,10 @@ export default function ChatsPage() {
   const [seleccionados, setSeleccionados] = useState<string[]>([]);
   const [nombreGrupo, setNombreGrupo] = useState("");
   const [loading, setLoading] = useState(true);
-  const [emojiData, setEmojiData] = useState<unknown>(null);
 
   const ultimaFechaRef = useRef<string | null>(null);
   const mensajesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  // Cargar datos de emoji-mart solo en cliente
-  useEffect(() => {
-    let activo = true;
-    (async () => {
-      const data = await import("@emoji-mart/data");
-      if (activo) setEmojiData(data.default);
-    })();
-    return () => { activo = false; };
-  }, []);
 
   // Carga inicial
   useEffect(() => {
@@ -230,11 +213,6 @@ export default function ChatsPage() {
     } else {
       toast.error("Error al eliminar el chat");
     }
-  }
-
-  function añadirEmoji(emoji: { native: string }) {
-    setTextoMensaje((prev) => prev + emoji.native);
-    inputRef.current?.focus();
   }
 
   function nombreDeChat(chat: ChatResumen): string {
@@ -391,19 +369,17 @@ export default function ChatsPage() {
             </div>
 
             {/* Selector de emojis */}
-            {mostrarEmojis && emojiData && (
-              <div className="px-6 pb-2">
-                <EmojiPicker
-                  data={emojiData}
-                  onEmojiSelect={añadirEmoji}
-                  locale="es"
-                  theme="dark"
-                  previewPosition="none"
-                  skinTonePosition="none"
-                  maxFrequentRows={2}
+            <div className="relative px-6">
+              {mostrarEmojis && (
+                <EmojiPickerPropio
+                  onSelect={(emoji) => {
+                    setTextoMensaje((prev) => prev + emoji);
+                    inputRef.current?.focus();
+                  }}
+                  onClose={() => setMostrarEmojis(false)}
                 />
-              </div>
-            )}
+              )}
+            </div>
 
             <form
               onSubmit={handleEnviarMensaje}
