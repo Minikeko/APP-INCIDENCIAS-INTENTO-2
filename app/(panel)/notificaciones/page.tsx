@@ -19,6 +19,7 @@ const TIPOS_NOTIFICACION = [
   { key: "MENCION", label: "Menciones con @" },
   { key: "ESTADO_ENVIO_CAMBIADO", label: "Cambios de estado en envíos" },
   { key: "ENVIO_ASIGNADO", label: "Envíos asignados a mí" },
+  { key: "EVENTO_RECORDATORIO", label: "Eventos del calendario" },
 ];
 
 export default function NotificacionesPage() {
