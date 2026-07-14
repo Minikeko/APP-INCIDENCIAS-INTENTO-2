@@ -1,6 +1,6 @@
 import { prisma } from "./prisma";
 
-type TipoNotificacion = "MENSAJE_NUEVO" | "MENCION" | "ESTADO_ENVIO_CAMBIADO" | "ENVIO_ASIGNADO";
+type TipoNotificacion = "MENSAJE_NUEVO" | "MENCION" | "ESTADO_ENVIO_CAMBIADO" | "ENVIO_ASIGNADO" | "EVENTO_RECORDATORIO";
 
 interface CrearNotificacionParams {
   tipo: TipoNotificacion;

@@ -23,8 +23,10 @@ import {
   Sun,
   Moon,
   X,
+  CalendarDays,
+  FileText,
 } from "lucide-react";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Avatar } from "@/components/Avatar";
 
 interface SessionUser {
@@ -51,6 +53,7 @@ const NAV_ITEMS = [
   { href: "/alertas", label: "Alertas", icon: BellRing },
   { href: "/informes", label: "Informes", icon: FileBarChart },
   { href: "/chats", label: "Chats", icon: MessageSquare },
+  { href: "/agenda", label: "Agenda", icon: CalendarDays },
 ];
 
 const ADMIN_ITEMS = [
@@ -58,6 +61,7 @@ const ADMIN_ITEMS = [
   { href: "/admin/usuarios", label: "Usuarios", icon: Users },
   { href: "/admin/tarifas", label: "Tarifas de comerciales", icon: FileSpreadsheet },
   { href: "/admin/facturacion", label: "Facturación", icon: Receipt },
+  { href: "/admin/facturas-manuales", label: "Facturas manuales", icon: FileText },
   { href: "/admin/denuncias", label: "Denuncias", icon: ScrollText },
   { href: "/admin/gastos", label: "Gastos varios", icon: Wallet },
   { href: "/admin/excel", label: "Archivos Excel", icon: FileSpreadsheet },
@@ -73,6 +77,8 @@ export function Sidebar() {
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
   const [totalNoLeidas, setTotalNoLeidas] = useState(0);
   const [mostrarNotif, setMostrarNotif] = useState(false);
+  const [campanaPos, setCampanaPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const campanaRef = useRef<HTMLButtonElement>(null);
   const [tema, setTema] = useState<"dark" | "light">("dark");
 
   useEffect(() => {
@@ -175,7 +181,13 @@ export function Sidebar() {
             {/* Campana de notificaciones */}
             <div className="relative">
               <button
-                onClick={() => setMostrarNotif((v) => !v)}
+                onClick={() => {
+                  if (campanaRef.current) {
+                    const rect = campanaRef.current.getBoundingClientRect();
+                    setCampanaPos({ top: rect.top, left: rect.left, width: rect.width });
+                  }
+                  setMostrarNotif((v) => !v);
+                }}
                 className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors relative"
               >
                 <Bell size={16} />
@@ -186,8 +198,15 @@ export function Sidebar() {
                 )}
               </button>
 
-              {mostrarNotif && (
-                <div className="absolute right-0 top-8 z-50 w-72 bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-xl shadow-2xl overflow-hidden" style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.4)", left: "calc(100% + 8px)", top: "0" }}>
+              {mostrarNotif && campanaPos && (
+                <div
+                  className="fixed z-50 w-80 bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-xl shadow-2xl overflow-hidden"
+                  style={{
+                    top: campanaPos.top,
+                    left: campanaPos.left + campanaPos.width + 12,
+                    boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+                  }}
+                >
                   <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-subtle)]">
                     <span className="text-sm font-semibold text-[var(--text-primary)]">Notificaciones</span>
                     <div className="flex items-center gap-2">
@@ -243,7 +262,7 @@ export function Sidebar() {
                     Ver historial completo
                   </Link>
                 </div>
-              )}
+                )}
             </div>
           </div>
         </div>

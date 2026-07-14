@@ -57,6 +57,11 @@ model User {
   mensajesVistos  MensajeVisto[]
   notificaciones  Notificacion[]
   reacciones      Reaccion[]
+  facturas        FacturaManual[]
+  eventosCreados  EventoAgenda[]     @relation("EventoCreador")
+  eventosAsignados EventoParticipante[]
+  notas           Nota[]
+  notasCompartidas NotaCompartida[]
 }
 
 enum ColumnaTablero {
@@ -381,6 +386,7 @@ enum TipoNotificacion {
   MENCION
   ESTADO_ENVIO_CAMBIADO
   ENVIO_ASIGNADO
+  EVENTO_RECORDATORIO
 }
 
 // ===== Notificaciones =====
@@ -412,4 +418,101 @@ model Reaccion {
 
   @@unique([mensajeId, userId, emoji])
   @@index([mensajeId])
+}
+
+// ===== Facturas manuales =====
+// Solo administradores. Generan un PDF con membrete con líneas de concepto.
+model FacturaManual {
+  id              String   @id @default(cuid())
+  numeroFactura   String   // ej. "FAC-2026-001"
+  fechaEmision    DateTime
+  fechaVencimiento DateTime?
+  clienteNombre   String
+  clienteNif      String?
+  clienteDireccion String?
+  clienteEmail    String?
+  observaciones   String?  @db.Text
+  // Nº de albaranes relacionados (texto libre, separados por coma)
+  albaranes       String?
+  baseImponible   Decimal  @db.Decimal(12, 2)
+  tipoIva         Int      @default(21)  // porcentaje IVA
+  totalIva        Decimal  @db.Decimal(12, 2)
+  total           Decimal  @db.Decimal(12, 2)
+  createdAt       DateTime @default(now())
+
+  creadoPorId     String
+  creadoPor       User     @relation(fields: [creadoPorId], references: [id])
+  lineas          LineaFactura[]
+
+  @@index([fechaEmision])
+  @@index([clienteNombre])
+}
+
+model LineaFactura {
+  id          String        @id @default(cuid())
+  facturaId   String
+  factura     FacturaManual @relation(fields: [facturaId], references: [id], onDelete: Cascade)
+  descripcion String
+  cantidad    Decimal       @db.Decimal(10, 2)
+  precioUnit  Decimal       @db.Decimal(12, 2)
+  total       Decimal       @db.Decimal(12, 2)
+  orden       Int           @default(0)
+}
+
+// ===== Agenda =====
+model EventoAgenda {
+  id          String   @id @default(cuid())
+  titulo      String
+  descripcion String?  @db.Text
+  fechaInicio DateTime
+  fechaFin    DateTime?
+  todoElDia   Boolean  @default(false)
+  color       String   @default("#e8a33d")
+  createdAt   DateTime @default(now())
+
+  creadoPorId   String
+  creadoPor     User   @relation("EventoCreador", fields: [creadoPorId], references: [id])
+  participantes EventoParticipante[]
+
+  @@index([fechaInicio])
+  @@index([creadoPorId])
+}
+
+model EventoParticipante {
+  id       String       @id @default(cuid())
+  eventoId String
+  evento   EventoAgenda @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventoId, userId])
+  @@index([userId])
+}
+
+// ===== Notas =====
+model Nota {
+  id        String   @id @default(cuid())
+  titulo    String
+  contenido String   @db.Text
+  color     String   @default("#e8a33d")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  autorId   String
+  autor     User   @relation(fields: [autorId], references: [id])
+  compartidaCon NotaCompartida[]
+
+  @@index([autorId])
+  @@index([createdAt])
+}
+
+model NotaCompartida {
+  id     String @id @default(cuid())
+  notaId String
+  nota   Nota   @relation(fields: [notaId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([notaId, userId])
+  @@index([userId])
 }
