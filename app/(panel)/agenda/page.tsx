@@ -1,37 +1,23 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { CalendarDays, Plus, ChevronLeft, ChevronRight, Trash2, Share2, X, StickyNote } from "lucide-react";
+import { CalendarDays, Plus, StickyNote, Share2, Trash2, X } from "lucide-react";
 import toast from "react-hot-toast";
+import { VistaMes } from "@/components/agenda/VistaMes";
+import { VistaSemana } from "@/components/agenda/VistaSemana";
+import { VistaDia } from "@/components/agenda/VistaDia";
+import { ModalEvento, DatosEvento } from "@/components/agenda/ModalEvento";
+import { DetalleEvento } from "@/components/agenda/DetalleEvento";
+import { Evento, Vista, COLORES } from "@/components/agenda/tipos";
 
 interface Usuario { id: string; nombre: string; activo: boolean; }
-interface Participante { user: { id: string; nombre: string } }
-interface Evento {
-  id: string; titulo: string; descripcion: string | null;
-  fechaInicio: string; fechaFin: string | null; todoElDia: boolean;
-  color: string; creadoPor: { id: string; nombre: string };
-  participantes: Participante[];
-}
 interface Nota {
-  id: string; titulo: string; contenido: string; color: string;
-  updatedAt: string; autor?: { id: string; nombre: string };
+  id: string; titulo: string; contenido: string; color: string; updatedAt: string;
+  autor?: { id: string; nombre: string };
   compartidaCon: { user: { id: string; nombre: string } }[];
 }
+interface NotaEditando { id: string; titulo: string; contenido: string; }
 interface SessionUser { userId: string; nombre: string; role: string; }
-
-const COLORES = ["#e8a33d", "#f87171", "#4ade80", "#60a5fa", "#c084fc", "#fb923c"];
-const DIAS = ["L", "M", "X", "J", "V", "S", "D"];
-const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-
-function diasDelMes(anio: number, mes: number): (number | null)[] {
-  const primerDia = new Date(anio, mes, 1).getDay();
-  const offset = primerDia === 0 ? 6 : primerDia - 1;
-  const total = new Date(anio, mes + 1, 0).getDate();
-  const celdas: (number | null)[] = Array(offset).fill(null);
-  for (let d = 1; d <= total; d++) celdas.push(d);
-  while (celdas.length % 7 !== 0) celdas.push(null);
-  return celdas;
-}
 
 export default function AgendaPage() {
   const [me, setMe] = useState<SessionUser | null>(null);
@@ -40,29 +26,36 @@ export default function AgendaPage() {
   const [notasPropias, setNotasPropias] = useState<Nota[]>([]);
   const [notasCompartidas, setNotasCompartidas] = useState<Nota[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Estado de navegación
   const hoy = new Date();
+  const [vista, setVista] = useState<Vista>("mes");
+  const [fechaRef, setFechaRef] = useState(hoy);
   const [anio, setAnio] = useState(hoy.getFullYear());
   const [mes, setMes] = useState(hoy.getMonth());
   const [tab, setTab] = useState<"calendario" | "notas">("calendario");
 
   // Modales
   const [modalEvento, setModalEvento] = useState(false);
-  const [modalNota, setModalNota] = useState(false);
-  const [modalCompartir, setModalCompartir] = useState<Nota | null>(null);
-  const [eventoSeleccionado, setEventoSeleccionado] = useState<Evento | null>(null);
-  const [diaSeleccionado, setDiaSeleccionado] = useState<string | null>(null);
-
-  const [formEvento, setFormEvento] = useState({ titulo: "", descripcion: "", fechaInicio: "", fechaFin: "", todoElDia: false, color: "#e8a33d", participantesIds: [] as string[] });
-  const [formNota, setFormNota] = useState({ titulo: "", contenido: "", color: "#e8a33d" });
+  const [eventoEditar, setEventoEditar] = useState<Evento | null>(null);
+  const [eventoDetalle, setEventoDetalle] = useState<Evento | null>(null);
+  const [fechaInicialModal, setFechaInicialModal] = useState<string | undefined>();
   const [guardando, setGuardando] = useState(false);
+
+  // Notas
+  const [modalNota, setModalNota] = useState(false);
+  const [formNota, setFormNota] = useState({ titulo: "", contenido: "", color: COLORES[0] });
+  const [notaEditando, setNotaEditando] = useState<NotaEditando | null>(null);
+  const [modalCompartir, setModalCompartir] = useState<Nota | null>(null);
   const [compartirIds, setCompartirIds] = useState<string[]>([]);
-  const [notaEditando, setNotaEditando] = useState<Nota | null>(null);
+  const [guardandoNota, setGuardandoNota] = useState(false);
 
   useEffect(() => {
     let activo = true;
     (async () => {
       const [meR, usR] = await Promise.all([fetch("/api/auth/me"), fetch("/api/usuarios")]);
-      const meD = await meR.json(); const usD = await usR.json();
+      const meD = await meR.json();
+      const usD = await usR.json();
       if (!activo) return;
       setMe(meD.user);
       setUsuarios((usD.usuarios || []).filter((u: Usuario) => u.activo));
@@ -71,8 +64,9 @@ export default function AgendaPage() {
   }, []);
 
   const cargarEventos = useCallback(async () => {
-    const desde = new Date(anio, mes, 1).toISOString();
-    const hasta = new Date(anio, mes + 1, 0, 23, 59, 59).toISOString();
+    // Cargar eventos con un margen amplio para cubrir cualquier vista
+    const desde = new Date(anio, mes - 1, 1).toISOString();
+    const hasta = new Date(anio, mes + 2, 0, 23, 59, 59).toISOString();
     const res = await fetch(`/api/agenda?desde=${desde}&hasta=${hasta}`);
     const data = await res.json();
     if (res.ok) setEventos(data.eventos);
@@ -81,7 +75,10 @@ export default function AgendaPage() {
   const cargarNotas = useCallback(async () => {
     const res = await fetch("/api/notas");
     const data = await res.json();
-    if (res.ok) { setNotasPropias(data.propias); setNotasCompartidas(data.compartidas); }
+    if (res.ok) {
+      setNotasPropias(data.propias);
+      setNotasCompartidas(data.compartidas);
+    }
   }, []);
 
   useEffect(() => {
@@ -94,17 +91,62 @@ export default function AgendaPage() {
     return () => { activo = false; };
   }, [cargarEventos, cargarNotas]);
 
-  async function crearEvento(e: React.FormEvent) {
-    e.preventDefault();
-    if (!formEvento.titulo || !formEvento.fechaInicio) { toast.error("Título y fecha son obligatorios"); return; }
+  // ===== Navegación =====
+  function cambiarMes(delta: number) {
+    const nuevo = new Date(anio, mes + delta, 1);
+    setAnio(nuevo.getFullYear());
+    setMes(nuevo.getMonth());
+    setFechaRef(nuevo);
+  }
+
+  function cambiarSemana(delta: number) {
+    const nueva = new Date(fechaRef);
+    nueva.setDate(nueva.getDate() + delta * 7);
+    setFechaRef(nueva);
+    setAnio(nueva.getFullYear());
+    setMes(nueva.getMonth());
+  }
+
+  function cambiarDia(delta: number) {
+    const nueva = new Date(fechaRef);
+    nueva.setDate(nueva.getDate() + delta);
+    setFechaRef(nueva);
+    setAnio(nueva.getFullYear());
+    setMes(nueva.getMonth());
+  }
+
+  function irAVista(v: Vista, fecha: Date) {
+    setVista(v);
+    setFechaRef(fecha);
+    setAnio(fecha.getFullYear());
+    setMes(fecha.getMonth());
+  }
+
+  // ===== Eventos =====
+  function abrirNuevoEvento(fecha: Date, hora?: number) {
+    const f = new Date(fecha);
+    if (hora !== undefined) f.setHours(hora, 0, 0, 0);
+    setFechaInicialModal(f.toISOString().slice(0, 16));
+    setEventoEditar(null);
+    setModalEvento(true);
+  }
+
+  async function guardarEvento(datos: DatosEvento) {
     setGuardando(true);
     try {
-      const res = await fetch("/api/agenda", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(formEvento) });
+      const url = eventoEditar ? `/api/agenda/${eventoEditar.id}` : "/api/agenda";
+      const method = eventoEditar ? "PATCH" : "POST";
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(datos),
+      });
       const data = await res.json();
-      if (!res.ok) { toast.error(data.error || "Error"); return; }
-      toast.success("Evento creado");
+      if (!res.ok) { toast.error(data.error || "Error al guardar"); return; }
+      toast.success(eventoEditar ? "Evento actualizado" : "Evento creado");
       setModalEvento(false);
-      setFormEvento({ titulo: "", descripcion: "", fechaInicio: "", fechaFin: "", todoElDia: false, color: "#e8a33d", participantesIds: [] });
+      setEventoEditar(null);
+      setEventoDetalle(null);
       cargarEventos();
     } finally { setGuardando(false); }
   }
@@ -112,28 +154,42 @@ export default function AgendaPage() {
   async function eliminarEvento(id: string) {
     if (!confirm("¿Eliminar este evento?")) return;
     const res = await fetch(`/api/agenda/${id}`, { method: "DELETE" });
-    if (res.ok) { toast.success("Evento eliminado"); setEventoSeleccionado(null); cargarEventos(); }
-    else toast.error("Error al eliminar");
+    if (res.ok) {
+      toast.success("Evento eliminado");
+      setEventoDetalle(null);
+      setModalEvento(false);
+      cargarEventos();
+    } else toast.error("Error al eliminar");
   }
 
+  // ===== Notas =====
   async function crearNota(e: React.FormEvent) {
     e.preventDefault();
     if (!formNota.titulo || !formNota.contenido) { toast.error("Título y contenido obligatorios"); return; }
-    setGuardando(true);
+    setGuardandoNota(true);
     try {
-      const res = await fetch("/api/notas", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(formNota) });
+      const res = await fetch("/api/notas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formNota),
+      });
       const data = await res.json();
       if (!res.ok) { toast.error(data.error || "Error"); return; }
       toast.success("Nota creada");
       setModalNota(false);
-      setFormNota({ titulo: "", contenido: "", color: "#e8a33d" });
+      setFormNota({ titulo: "", contenido: "", color: COLORES[0] });
       cargarNotas();
-    } finally { setGuardando(false); }
+    } finally { setGuardandoNota(false); }
   }
 
-  async function guardarNota(nota: Nota) {
-    const res = await fetch(`/api/notas/${nota.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ titulo: nota.titulo, contenido: nota.contenido }) });
-    if (res.ok) { toast.success("Nota guardada"); cargarNotas(); setNotaEditando(null); }
+  async function guardarNota() {
+    if (!notaEditando) return;
+    const res = await fetch(`/api/notas/${notaEditando.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ titulo: notaEditando.titulo, contenido: notaEditando.contenido }),
+    });
+    if (res.ok) { toast.success("Nota guardada"); setNotaEditando(null); cargarNotas(); }
     else toast.error("Error al guardar");
   }
 
@@ -146,151 +202,174 @@ export default function AgendaPage() {
 
   async function compartirNota() {
     if (!modalCompartir) return;
-    const res = await fetch(`/api/notas/${modalCompartir.id}/compartir`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ usuariosIds: compartirIds }) });
+    const res = await fetch(`/api/notas/${modalCompartir.id}/compartir`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ usuariosIds: compartirIds }),
+    });
     if (res.ok) { toast.success("Nota compartida"); setModalCompartir(null); cargarNotas(); }
     else toast.error("Error al compartir");
   }
 
-  const celdas = diasDelMes(anio, mes);
-  function eventosDelDia(dia: number) {
-    return eventos.filter((ev) => {
-      const d = new Date(ev.fechaInicio);
-      return d.getFullYear() === anio && d.getMonth() === mes && d.getDate() === dia;
-    });
-  }
 
   return (
-    <div className="p-6 max-w-5xl">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2.5">
+    <div className="flex flex-col h-screen p-4 gap-4 overflow-hidden">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-2">
           <CalendarDays size={20} style={{ color: "var(--accent)" }} />
-          <h1 className="font-display text-2xl uppercase tracking-wide text-[var(--text-primary)]">Agenda</h1>
+          <h1 className="font-display text-xl uppercase tracking-wide text-[var(--text-primary)]">Agenda</h1>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => setTab("calendario")} className={`text-sm px-3 py-1.5 rounded-md transition-colors ${tab === "calendario" ? "bg-[var(--accent-dim)] text-[var(--accent)]" : "text-[var(--text-secondary)] hover:bg-[var(--bg-panel)]"}`}>Calendario</button>
-          <button onClick={() => setTab("notas")} className={`text-sm px-3 py-1.5 rounded-md transition-colors ${tab === "notas" ? "bg-[var(--accent-dim)] text-[var(--accent)]" : "text-[var(--text-secondary)] hover:bg-[var(--bg-panel)]"}`}>Notas</button>
-          <button onClick={() => { if (tab === "calendario") { setFormEvento((f) => ({ ...f, fechaInicio: diaSeleccionado || new Date().toISOString().slice(0, 16) })); setModalEvento(true); } else setModalNota(true); }} className="flex items-center gap-1.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[#1a1408] font-semibold text-sm rounded-md px-4 py-2 transition-colors">
-            <Plus size={15} /> {tab === "calendario" ? "Nuevo evento" : "Nueva nota"}
+          {/* Tab calendario / notas */}
+          <div className="flex bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg p-0.5">
+            <button onClick={() => setTab("calendario")} className={`text-xs px-3 py-1.5 rounded-md transition-colors ${tab === "calendario" ? "bg-[var(--accent-dim)] text-[var(--accent)] font-medium" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"}`}>Calendario</button>
+            <button onClick={() => setTab("notas")} className={`text-xs px-3 py-1.5 rounded-md transition-colors ${tab === "notas" ? "bg-[var(--accent-dim)] text-[var(--accent)] font-medium" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"}`}>Notas</button>
+          </div>
+
+          {tab === "calendario" && (
+            <>
+              {/* Selector de vista */}
+              <div className="flex bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg p-0.5">
+                {(["mes", "semana", "dia"] as Vista[]).map((v) => (
+                  <button key={v} onClick={() => setVista(v)} className={`text-xs px-3 py-1.5 rounded-md capitalize transition-colors ${vista === v ? "bg-[var(--accent-dim)] text-[var(--accent)] font-medium" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"}`}>{v === "dia" ? "Día" : v === "mes" ? "Mes" : "Semana"}</button>
+                ))}
+              </div>
+              <button onClick={() => { setFechaRef(hoy); setAnio(hoy.getFullYear()); setMes(hoy.getMonth()); }} className="text-xs px-3 py-1.5 bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">Hoy</button>
+            </>
+          )}
+
+          <button
+            onClick={() => {
+              if (tab === "notas") { setModalNota(true); }
+              else { abrirNuevoEvento(new Date()); }
+            }}
+            className="flex items-center gap-1.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[#1a1408] font-semibold text-sm rounded-lg px-3 py-2 transition-colors"
+          >
+            <Plus size={14} /> {tab === "notas" ? "Nota" : "Evento"}
           </button>
         </div>
       </div>
 
       {tab === "calendario" && (
-        <div className="grid grid-cols-3 gap-6">
-          <div className="col-span-2">
-            <div className="bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg overflow-hidden">
-              {/* Cabecera del mes */}
-              <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--border-subtle)]">
-                <button onClick={() => { if (mes === 0) { setMes(11); setAnio((y) => y - 1); } else setMes((m) => m - 1); }} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"><ChevronLeft size={18} /></button>
-                <span className="text-sm font-semibold text-[var(--text-primary)]">{MESES[mes]} {anio}</span>
-                <button onClick={() => { if (mes === 11) { setMes(0); setAnio((y) => y + 1); } else setMes((m) => m + 1); }} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"><ChevronRight size={18} /></button>
-              </div>
-              {/* Días de la semana */}
-              <div className="grid grid-cols-7 border-b border-[var(--border-subtle)]">
-                {DIAS.map((d) => <div key={d} className="py-2 text-center text-[10px] uppercase tracking-wider text-[var(--text-muted)]">{d}</div>)}
-              </div>
-              {/* Celdas del mes */}
-              <div className="grid grid-cols-7">
-                {celdas.map((dia, i) => {
-                  const esHoy = dia === hoy.getDate() && mes === hoy.getMonth() && anio === hoy.getFullYear();
-                  const evsDia = dia ? eventosDelDia(dia) : [];
-                  return (
-                    <div key={i} onClick={() => { if (dia) { const f = `${anio}-${String(mes+1).padStart(2,"0")}-${String(dia).padStart(2,"0")}T09:00`; setDiaSeleccionado(f); setFormEvento((prev) => ({ ...prev, fechaInicio: f })); setModalEvento(true); } }} className={`min-h-[72px] p-1.5 border-b border-r border-[var(--border-subtle)] cursor-pointer hover:bg-[var(--bg-panel-raised)] transition-colors ${!dia ? "opacity-0 pointer-events-none" : ""}`}>
-                      {dia && (
-                        <>
-                          <div className={`text-xs font-mono w-6 h-6 flex items-center justify-center rounded-full mb-1 ${esHoy ? "bg-[var(--accent)] text-[#1a1408] font-bold" : "text-[var(--text-secondary)]"}`}>{dia}</div>
-                          <div className="space-y-0.5">
-                            {evsDia.slice(0, 3).map((ev) => (
-                              <div key={ev.id} onClick={(e) => { e.stopPropagation(); setEventoSeleccionado(ev); }} className="text-[10px] px-1 py-0.5 rounded truncate text-white cursor-pointer hover:opacity-80" style={{ backgroundColor: ev.color }}>{ev.titulo}</div>
-                            ))}
-                            {evsDia.length > 3 && <div className="text-[9px] text-[var(--text-muted)] pl-1">+{evsDia.length - 3} más</div>}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+        <div className="flex-1 grid grid-cols-4 gap-4 overflow-hidden min-h-0">
+          {/* Vista principal */}
+          <div className="col-span-3 overflow-hidden">
+            {vista === "mes" && (
+              <VistaMes
+                anio={anio} mes={mes} eventos={eventos}
+                onCambiarMes={cambiarMes}
+                onDiaClick={(d) => abrirNuevoEvento(d)}
+                onEventoClick={setEventoDetalle}
+                onCambiarVista={irAVista}
+              />
+            )}
+            {vista === "semana" && (
+              <VistaSemana
+                fechaRef={fechaRef} eventos={eventos}
+                onCambiarSemana={cambiarSemana}
+                onHoraClick={(f, h) => abrirNuevoEvento(f, h)}
+                onEventoClick={setEventoDetalle}
+                onDiaClick={(d) => irAVista("dia", d)}
+              />
+            )}
+            {vista === "dia" && (
+              <VistaDia
+                fecha={fechaRef} eventos={eventos}
+                onCambiarDia={cambiarDia}
+                onHoraClick={(f, h) => abrirNuevoEvento(f, h)}
+                onEventoClick={setEventoDetalle}
+              />
+            )}
           </div>
 
-          {/* Panel derecho: detalle evento o lista de próximos */}
-          <div className="col-span-1 space-y-3">
-            {eventoSeleccionado ? (
-              <div className="bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg p-4">
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: eventoSeleccionado.color }} />
-                    <p className="text-sm font-semibold text-[var(--text-primary)]">{eventoSeleccionado.titulo}</p>
-                  </div>
-                  <button onClick={() => setEventoSeleccionado(null)}><X size={14} className="text-[var(--text-muted)]" /></button>
-                </div>
-                <p className="text-xs text-[var(--text-muted)] mb-1">{new Date(eventoSeleccionado.fechaInicio).toLocaleString("es-ES", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</p>
-                {eventoSeleccionado.descripcion && <p className="text-xs text-[var(--text-secondary)] mb-2">{eventoSeleccionado.descripcion}</p>}
-                {eventoSeleccionado.participantes.length > 0 && (
-                  <p className="text-xs text-[var(--text-muted)] mb-2">Participantes: {eventoSeleccionado.participantes.map((p) => p.user.nombre).join(", ")}</p>
-                )}
-                {(me?.userId === eventoSeleccionado.creadoPor.id || me?.role === "ADMIN") && (
-                  <button onClick={() => eliminarEvento(eventoSeleccionado.id)} className="flex items-center gap-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--status-perdido)] transition-colors"><Trash2 size={12} /> Eliminar evento</button>
-                )}
-              </div>
+          {/* Panel lateral */}
+          <div className="col-span-1 flex flex-col gap-3 overflow-y-auto">
+            {eventoDetalle ? (
+              <DetalleEvento
+                evento={eventoDetalle}
+                miId={me?.userId ?? ""}
+                onCerrar={() => setEventoDetalle(null)}
+                onEditar={() => { setEventoEditar(eventoDetalle); setModalEvento(true); }}
+                onEliminar={eliminarEvento}
+              />
             ) : (
-              <div>
-                <p className="text-xs uppercase tracking-wider text-[var(--text-muted)] mb-2">Próximos eventos</p>
-                {eventos.length === 0 ? (
-                  <p className="text-xs text-[var(--text-muted)] bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg p-4 text-center">Sin eventos este mes</p>
+              <div className="bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-xl p-4">
+                <p className="text-xs uppercase tracking-wider text-[var(--text-muted)] mb-3">Próximos eventos</p>
+                {loading ? (
+                  <p className="text-xs text-[var(--text-muted)]">Cargando...</p>
+                ) : eventos.length === 0 ? (
+                  <p className="text-xs text-[var(--text-muted)] text-center py-4">Sin eventos</p>
                 ) : (
                   <div className="space-y-2">
-                    {eventos.slice(0, 8).map((ev) => (
-                      <button key={ev.id} onClick={() => setEventoSeleccionado(ev)} className="w-full text-left bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 hover:border-[var(--accent)] transition-colors">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: ev.color }} />
-                          <p className="text-xs text-[var(--text-primary)] font-medium truncate">{ev.titulo}</p>
-                        </div>
-                        <p className="text-[10px] text-[var(--text-muted)] mt-0.5 pl-4">{new Date(ev.fechaInicio).toLocaleDateString("es-ES", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</p>
-                      </button>
-                    ))}
+                    {[...eventos]
+                      .filter((ev) => new Date(ev.fechaInicio) >= new Date(new Date().setHours(0,0,0,0)))
+                      .sort((a, b) => new Date(a.fechaInicio).getTime() - new Date(b.fechaInicio).getTime())
+                      .slice(0, 6)
+                      .map((ev) => (
+                        <button key={ev.id} onClick={() => setEventoDetalle(ev)} className="w-full text-left rounded-lg px-3 py-2 hover:bg-[var(--bg-panel-raised)] transition-colors border border-[var(--border-subtle)] hover:border-[var(--accent)]">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: ev.color }} />
+                            <p className="text-xs text-[var(--text-primary)] font-medium truncate">{ev.titulo}</p>
+                          </div>
+                          <p className="text-[10px] text-[var(--text-muted)] mt-0.5 pl-4">
+                            {new Date(ev.fechaInicio).toLocaleDateString("es-ES", { weekday: "short", day: "2-digit", month: "short" })}
+                            {!ev.todoElDia && ` · ${new Date(ev.fechaInicio).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}`}
+                          </p>
+                        </button>
+                      ))}
                   </div>
                 )}
               </div>
             )}
+
+            {/* Mini-leyenda de vista */}
+            <div className="bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-xl p-3 text-xs text-[var(--text-muted)] space-y-1">
+              <p className="font-medium text-[var(--text-secondary)] mb-2">Atajos</p>
+              <p>· Clic en día → nuevo evento</p>
+              <p>· Clic en número de día → vista de día</p>
+              <p>· Clic en mes (título) → vista semanal</p>
+              <p>· Clic en evento → ver detalle</p>
+            </div>
           </div>
         </div>
       )}
 
       {tab === "notas" && (
-        <div>
+        <div className="flex-1 overflow-y-auto">
           {notasPropias.length === 0 && notasCompartidas.length === 0 && !loading && (
-            <p className="text-sm text-[var(--text-muted)] bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-4 py-6 text-center">No tienes notas todavía. Crea una con el botón de arriba.</p>
+            <p className="text-sm text-[var(--text-muted)] bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-xl px-4 py-8 text-center">
+              No tienes notas todavía.
+            </p>
           )}
           {notasPropias.length > 0 && (
             <>
               <p className="text-xs uppercase tracking-wider text-[var(--text-muted)] mb-3">Mis notas</p>
-              <div className="grid grid-cols-3 gap-4 mb-6">
+              <div className="grid grid-cols-4 gap-3 mb-6">
                 {notasPropias.map((nota) => (
-                  <div key={nota.id} className="rounded-lg p-4 border border-[var(--border-subtle)] flex flex-col gap-2" style={{ borderLeftColor: nota.color, borderLeftWidth: 4 }}>
+                  <div key={nota.id} className="rounded-xl border border-[var(--border-subtle)] overflow-hidden flex flex-col" style={{ borderLeftColor: nota.color, borderLeftWidth: 3 }}>
                     {notaEditando?.id === nota.id ? (
-                      <>
+                      <div className="p-3 flex flex-col gap-2 flex-1">
                         <input value={notaEditando.titulo} onChange={(e) => setNotaEditando({ ...notaEditando, titulo: e.target.value })} className="w-full bg-[var(--bg-panel-raised)] border border-[var(--border-strong)] rounded px-2 py-1 text-sm font-semibold text-[var(--text-primary)] focus:border-[var(--accent)] transition-colors" />
-                        <textarea value={notaEditando.contenido} onChange={(e) => setNotaEditando({ ...notaEditando, contenido: e.target.value })} className="w-full bg-[var(--bg-panel-raised)] border border-[var(--border-strong)] rounded px-2 py-1 text-xs text-[var(--text-secondary)] min-h-[80px] resize-none focus:border-[var(--accent)] transition-colors" />
+                        <textarea value={notaEditando.contenido} onChange={(e) => setNotaEditando({ ...notaEditando, contenido: e.target.value })} className="w-full bg-[var(--bg-panel-raised)] border border-[var(--border-strong)] rounded px-2 py-1 text-xs text-[var(--text-secondary)] min-h-[80px] resize-none focus:border-[var(--accent)] transition-colors flex-1" />
                         <div className="flex gap-2">
-                          <button onClick={() => guardarNota(notaEditando)} className="text-xs bg-[var(--accent)] text-[#1a1408] px-3 py-1 rounded font-semibold">Guardar</button>
+                          <button onClick={guardarNota} className="text-xs bg-[var(--accent)] text-[#1a1408] px-3 py-1 rounded-md font-semibold">Guardar</button>
                           <button onClick={() => setNotaEditando(null)} className="text-xs text-[var(--text-muted)] px-3 py-1">Cancelar</button>
                         </div>
-                      </>
+                      </div>
                     ) : (
-                      <>
+                      <div className="p-3 flex flex-col gap-2 flex-1">
                         <p className="text-sm font-semibold text-[var(--text-primary)]">{nota.titulo}</p>
-                        <p className="text-xs text-[var(--text-secondary)] flex-1 whitespace-pre-wrap">{nota.contenido}</p>
+                        <p className="text-xs text-[var(--text-secondary)] flex-1 whitespace-pre-wrap line-clamp-6">{nota.contenido}</p>
                         {nota.compartidaCon.length > 0 && (
-                          <p className="text-[10px] text-[var(--text-muted)]">Compartida con: {nota.compartidaCon.map((c) => c.user.nombre).join(", ")}</p>
+                          <p className="text-[10px] text-[var(--text-muted)]">Con: {nota.compartidaCon.map((c) => c.user.nombre).join(", ")}</p>
                         )}
-                        <div className="flex items-center gap-2 mt-1">
-                          <button onClick={() => setNotaEditando({ ...nota })} className="text-[10px] text-[var(--accent)] hover:underline">Editar</button>
-                          <button onClick={() => { setModalCompartir(nota); setCompartirIds(nota.compartidaCon.map((c) => c.user.id)); }} className="text-[10px] text-[var(--text-muted)] hover:text-[var(--accent)] flex items-center gap-0.5"><Share2 size={10} /> Compartir</button>
-                          <button onClick={() => eliminarNota(nota.id)} className="text-[10px] text-[var(--text-muted)] hover:text-[var(--status-perdido)] flex items-center gap-0.5 ml-auto"><Trash2 size={10} /></button>
+                        <div className="flex items-center gap-2 pt-1 border-t border-[var(--border-subtle)]">
+                          <button onClick={() => setNotaEditando({ id: nota.id, titulo: nota.titulo, contenido: nota.contenido })} className="text-[10px] text-[var(--accent)] hover:underline">Editar</button>
+                          <button onClick={() => { setModalCompartir(nota); setCompartirIds(nota.compartidaCon.map((c) => c.user.id)); }} className="text-[10px] text-[var(--text-muted)] hover:text-[var(--accent)] flex items-center gap-0.5 transition-colors"><Share2 size={10} /> Compartir</button>
+                          <button onClick={() => eliminarNota(nota.id)} className="text-[10px] text-[var(--text-muted)] hover:text-[var(--status-perdido)] flex items-center gap-0.5 ml-auto transition-colors"><Trash2 size={10} /></button>
                         </div>
-                      </>
+                      </div>
                     )}
                   </div>
                 ))}
@@ -300,12 +379,12 @@ export default function AgendaPage() {
           {notasCompartidas.length > 0 && (
             <>
               <p className="text-xs uppercase tracking-wider text-[var(--text-muted)] mb-3">Compartidas conmigo</p>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-4 gap-3">
                 {notasCompartidas.map((nota) => (
-                  <div key={nota.id} className="rounded-lg p-4 border border-[var(--border-subtle)]" style={{ borderLeftColor: nota.color, borderLeftWidth: 4 }}>
+                  <div key={nota.id} className="rounded-xl border border-[var(--border-subtle)] p-3 flex flex-col gap-2" style={{ borderLeftColor: nota.color, borderLeftWidth: 3 }}>
                     <p className="text-sm font-semibold text-[var(--text-primary)]">{nota.titulo}</p>
-                    <p className="text-xs text-[var(--text-secondary)] mt-1 whitespace-pre-wrap">{nota.contenido}</p>
-                    <p className="text-[10px] text-[var(--text-muted)] mt-2">De: {nota.autor?.nombre}</p>
+                    <p className="text-xs text-[var(--text-secondary)] whitespace-pre-wrap line-clamp-6">{nota.contenido}</p>
+                    <p className="text-[10px] text-[var(--text-muted)] mt-auto pt-1 border-t border-[var(--border-subtle)]">De: {nota.autor?.nombre}</p>
                   </div>
                 ))}
               </div>
@@ -314,58 +393,33 @@ export default function AgendaPage() {
         </div>
       )}
 
-      {/* Modal nuevo evento */}
-      {modalEvento && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg w-full max-w-md p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-display text-lg uppercase tracking-wide text-[var(--text-primary)]">Nuevo evento</h2>
-              <button onClick={() => setModalEvento(false)}><X size={18} className="text-[var(--text-muted)]" /></button>
-            </div>
-            <form onSubmit={crearEvento} className="space-y-3">
-              <input required value={formEvento.titulo} onChange={(e) => setFormEvento((f) => ({ ...f, titulo: e.target.value }))} placeholder="Título del evento" className="w-full bg-[var(--bg-panel-raised)] border border-[var(--border-strong)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--accent)] transition-colors" />
-              <div className="grid grid-cols-2 gap-3">
-                <div><label className="block text-xs text-[var(--text-muted)] mb-1">Inicio</label><input required type="datetime-local" value={formEvento.fechaInicio} onChange={(e) => setFormEvento((f) => ({ ...f, fechaInicio: e.target.value }))} className="w-full bg-[var(--bg-panel-raised)] border border-[var(--border-strong)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--accent)] transition-colors" /></div>
-                <div><label className="block text-xs text-[var(--text-muted)] mb-1">Fin (opcional)</label><input type="datetime-local" value={formEvento.fechaFin} onChange={(e) => setFormEvento((f) => ({ ...f, fechaFin: e.target.value }))} className="w-full bg-[var(--bg-panel-raised)] border border-[var(--border-strong)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--accent)] transition-colors" /></div>
-              </div>
-              <textarea value={formEvento.descripcion} onChange={(e) => setFormEvento((f) => ({ ...f, descripcion: e.target.value }))} placeholder="Descripción (opcional)" className="w-full bg-[var(--bg-panel-raised)] border border-[var(--border-strong)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] min-h-[60px] resize-none focus:border-[var(--accent)] transition-colors" />
-              <div>
-                <label className="block text-xs text-[var(--text-muted)] mb-1">Color</label>
-                <div className="flex gap-2">{COLORES.map((c) => <button key={c} type="button" onClick={() => setFormEvento((f) => ({ ...f, color: c }))} className={`w-6 h-6 rounded-full border-2 transition-all ${formEvento.color === c ? "border-white scale-110" : "border-transparent"}`} style={{ backgroundColor: c }} />)}</div>
-              </div>
-              <div>
-                <label className="block text-xs text-[var(--text-muted)] mb-1">Participantes</label>
-                <div className="max-h-32 overflow-y-auto space-y-1 border border-[var(--border-subtle)] rounded-md p-2">
-                  {usuarios.filter((u) => u.id !== me?.userId).map((u) => (
-                    <label key={u.id} className="flex items-center gap-2 px-1 py-1 rounded hover:bg-[var(--bg-panel-raised)] cursor-pointer">
-                      <input type="checkbox" checked={formEvento.participantesIds.includes(u.id)} onChange={() => setFormEvento((f) => ({ ...f, participantesIds: f.participantesIds.includes(u.id) ? f.participantesIds.filter((id) => id !== u.id) : [...f.participantesIds, u.id] }))} className="accent-[var(--accent)]" />
-                      <span className="text-xs text-[var(--text-primary)]">{u.nombre}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-              <button type="submit" disabled={guardando} className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:opacity-60 text-[#1a1408] font-semibold text-sm rounded-md py-2.5 transition-colors">{guardando ? "Creando..." : "Crear evento"}</button>
-            </form>
-          </div>
-        </div>
+      {/* Modal de evento */}
+      {modalEvento && me && (
+        <ModalEvento
+          evento={eventoEditar}
+          fechaInicial={fechaInicialModal}
+          usuarios={usuarios}
+          miId={me.userId}
+          onGuardar={guardarEvento}
+          onEliminar={eliminarEvento}
+          onCerrar={() => { setModalEvento(false); setEventoEditar(null); }}
+          guardando={guardando}
+        />
       )}
 
       {/* Modal nueva nota */}
       {modalNota && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg w-full max-w-md p-5">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-xl w-full max-w-md p-5">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2"><StickyNote size={16} style={{ color: "var(--accent)" }} /><h2 className="font-display text-lg uppercase tracking-wide text-[var(--text-primary)]">Nueva nota</h2></div>
               <button onClick={() => setModalNota(false)}><X size={18} className="text-[var(--text-muted)]" /></button>
             </div>
             <form onSubmit={crearNota} className="space-y-3">
-              <input required value={formNota.titulo} onChange={(e) => setFormNota((f) => ({ ...f, titulo: e.target.value }))} placeholder="Título" className="w-full bg-[var(--bg-panel-raised)] border border-[var(--border-strong)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--accent)] transition-colors" />
-              <textarea required value={formNota.contenido} onChange={(e) => setFormNota((f) => ({ ...f, contenido: e.target.value }))} placeholder="Escribe tu nota aquí..." className="w-full bg-[var(--bg-panel-raised)] border border-[var(--border-strong)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] min-h-[120px] resize-none focus:border-[var(--accent)] transition-colors" />
-              <div>
-                <label className="block text-xs text-[var(--text-muted)] mb-1">Color</label>
-                <div className="flex gap-2">{COLORES.map((c) => <button key={c} type="button" onClick={() => setFormNota((f) => ({ ...f, color: c }))} className={`w-6 h-6 rounded-full border-2 transition-all ${formNota.color === c ? "border-white scale-110" : "border-transparent"}`} style={{ backgroundColor: c }} />)}</div>
-              </div>
-              <button type="submit" disabled={guardando} className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:opacity-60 text-[#1a1408] font-semibold text-sm rounded-md py-2.5 transition-colors">{guardando ? "Creando..." : "Crear nota"}</button>
+              <input required value={formNota.titulo} onChange={(e) => setFormNota((f) => ({ ...f, titulo: e.target.value }))} placeholder="Título" className="w-full bg-[var(--bg-panel-raised)] border border-[var(--border-strong)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--accent)] transition-colors" />
+              <textarea required value={formNota.contenido} onChange={(e) => setFormNota((f) => ({ ...f, contenido: e.target.value }))} placeholder="Escribe tu nota aquí..." className="w-full bg-[var(--bg-panel-raised)] border border-[var(--border-strong)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] min-h-[120px] resize-none focus:border-[var(--accent)] transition-colors" />
+              <div><label className="block text-xs text-[var(--text-muted)] mb-1.5">Color</label><div className="flex gap-2">{COLORES.map((c) => <button key={c} type="button" onClick={() => setFormNota((f) => ({ ...f, color: c }))} className="w-6 h-6 rounded-full border-2 transition-all" style={{ backgroundColor: c, borderColor: formNota.color === c ? "white" : "transparent", transform: formNota.color === c ? "scale(1.2)" : "scale(1)" }} />)}</div></div>
+              <button type="submit" disabled={guardandoNota} className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:opacity-60 text-[#1a1408] font-semibold text-sm rounded-lg py-2.5 transition-colors">{guardandoNota ? "Creando..." : "Crear nota"}</button>
             </form>
           </div>
         </div>
@@ -373,13 +427,13 @@ export default function AgendaPage() {
 
       {/* Modal compartir nota */}
       {modalCompartir && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg w-full max-w-sm p-5">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-xl w-full max-w-sm p-5">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-display text-lg uppercase tracking-wide text-[var(--text-primary)]">Compartir nota</h2>
               <button onClick={() => setModalCompartir(null)}><X size={18} className="text-[var(--text-muted)]" /></button>
             </div>
-            <div className="max-h-48 overflow-y-auto space-y-1 border border-[var(--border-subtle)] rounded-md p-2 mb-4">
+            <div className="max-h-48 overflow-y-auto space-y-1 border border-[var(--border-subtle)] rounded-lg p-2 mb-4">
               {usuarios.filter((u) => u.id !== me?.userId).map((u) => (
                 <label key={u.id} className="flex items-center gap-2 px-1 py-1.5 rounded hover:bg-[var(--bg-panel-raised)] cursor-pointer">
                   <input type="checkbox" checked={compartirIds.includes(u.id)} onChange={() => setCompartirIds((prev) => prev.includes(u.id) ? prev.filter((id) => id !== u.id) : [...prev, u.id])} className="accent-[var(--accent)]" />
@@ -387,7 +441,7 @@ export default function AgendaPage() {
                 </label>
               ))}
             </div>
-            <button onClick={compartirNota} className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[#1a1408] font-semibold text-sm rounded-md py-2.5 transition-colors">Guardar</button>
+            <button onClick={compartirNota} className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[#1a1408] font-semibold text-sm rounded-lg py-2.5 transition-colors">Guardar</button>
           </div>
         </div>
       )}
