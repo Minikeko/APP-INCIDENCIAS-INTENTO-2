@@ -13,7 +13,6 @@ import {
   CheckCheck,
   Paperclip,
   FileText,
-  Image as ImageIcon,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { EmojiPickerPropio } from "@/components/EmojiPicker";
@@ -381,17 +380,35 @@ export default function ChatsPage() {
                         <p className="whitespace-pre-wrap break-words">{m.texto}</p>
                       )}
                       {m.tieneAdjunto && m.adjuntoNombre && (
-                        <a
-                          href={`/api/mensajes/${m.id}/adjunto`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={`flex items-center gap-2 mt-1.5 rounded px-2 py-1.5 text-xs hover:opacity-80 transition-opacity ${
-                            esMio ? "bg-black/10" : "bg-[var(--bg-panel-raised)]"
-                          }`}
-                        >
-                          {esImagen ? <ImageIcon size={14} /> : <FileText size={14} />}
-                          <span className="truncate max-w-[160px]">{m.adjuntoNombre}</span>
-                        </a>
+                        esImagen ? (
+                          <a
+                            href={`/api/mensajes/${m.id}/adjunto`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block mt-1.5"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={`/api/mensajes/${m.id}/adjunto`}
+                              alt={m.adjuntoNombre}
+                              className="max-w-[260px] max-h-[320px] rounded-md object-cover hover:opacity-90 transition-opacity cursor-pointer"
+                              loading="lazy"
+                            />
+                            <p className="text-[10px] opacity-60 mt-1 truncate max-w-[260px]">{m.adjuntoNombre}</p>
+                          </a>
+                        ) : (
+                          <a
+                            href={`/api/mensajes/${m.id}/adjunto`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`flex items-center gap-2 mt-1.5 rounded px-2 py-1.5 text-xs hover:opacity-80 transition-opacity ${
+                              esMio ? "bg-black/10" : "bg-[var(--bg-panel-raised)]"
+                            }`}
+                          >
+                            <FileText size={14} />
+                            <span className="truncate max-w-[160px]">{m.adjuntoNombre}</span>
+                          </a>
+                        )
                       )}
                       <div className={`flex items-center gap-1 mt-1 ${esMio ? "justify-end" : ""}`}>
                         <p className={`text-[10px] ${esMio ? "opacity-60" : "text-[var(--text-muted)]"}`}>
