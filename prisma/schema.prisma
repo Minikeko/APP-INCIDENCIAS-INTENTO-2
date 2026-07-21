@@ -501,6 +501,7 @@ model Nota {
   autorId   String
   autor     User   @relation(fields: [autorId], references: [id])
   compartidaCon NotaCompartida[]
+  adjuntos  NotaAdjunto[]
 
   @@index([autorId])
   @@index([createdAt])
@@ -515,4 +516,17 @@ model NotaCompartida {
 
   @@unique([notaId, userId])
   @@index([userId])
+}
+
+model NotaAdjunto {
+  id            String   @id @default(cuid())
+  notaId        String
+  nota          Nota     @relation(fields: [notaId], references: [id], onDelete: Cascade)
+  nombreArchivo String
+  tipoArchivo   String
+  tamano        Int
+  datos         Bytes
+  createdAt     DateTime @default(now())
+
+  @@index([notaId])
 }

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { CalendarDays, Plus, StickyNote, Share2, Trash2, X } from "lucide-react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { CalendarDays, Plus, StickyNote, Share2, Trash2, X, Paperclip, FileText } from "lucide-react";
 import toast from "react-hot-toast";
 import { VistaMes } from "@/components/agenda/VistaMes";
 import { VistaSemana } from "@/components/agenda/VistaSemana";
@@ -11,10 +11,14 @@ import { DetalleEvento } from "@/components/agenda/DetalleEvento";
 import { Evento, Vista, COLORES } from "@/components/agenda/tipos";
 
 interface Usuario { id: string; nombre: string; activo: boolean; }
+interface NotaAdjunto {
+  id: string; nombreArchivo: string; tipoArchivo: string; tamano: number; createdAt: string;
+}
 interface Nota {
   id: string; titulo: string; contenido: string; color: string; updatedAt: string;
   autor?: { id: string; nombre: string };
   compartidaCon: { user: { id: string; nombre: string } }[];
+  adjuntos: NotaAdjunto[];
 }
 interface NotaEditando { id: string; titulo: string; contenido: string; }
 interface SessionUser { userId: string; nombre: string; role: string; }
@@ -49,6 +53,9 @@ export default function AgendaPage() {
   const [modalCompartir, setModalCompartir] = useState<Nota | null>(null);
   const [compartirIds, setCompartirIds] = useState<string[]>([]);
   const [guardandoNota, setGuardandoNota] = useState(false);
+  const [subiendoAdjunto, setSubiendoAdjunto] = useState<string | null>(null); // id de la nota
+  const adjuntoInputRef = useRef<HTMLInputElement>(null);
+  const [notaParaAdjunto, setNotaParaAdjunto] = useState<string | null>(null);
 
   useEffect(() => {
     let activo = true;
@@ -211,6 +218,28 @@ export default function AgendaPage() {
     else toast.error("Error al compartir");
   }
 
+  async function subirAdjuntoNota(notaId: string, file: File) {
+    setSubiendoAdjunto(notaId);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`/api/notas/${notaId}/adjuntos`, { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) { toast.error(data.error || "Error al subir el archivo"); return; }
+      toast.success("Archivo añadido");
+      cargarNotas();
+    } finally {
+      setSubiendoAdjunto(null);
+      if (adjuntoInputRef.current) adjuntoInputRef.current.value = "";
+    }
+  }
+
+  async function eliminarAdjuntoNota(adjuntoId: string) {
+    const res = await fetch(`/api/notas/adjuntos/${adjuntoId}`, { method: "DELETE" });
+    if (res.ok) { toast.success("Archivo eliminado"); cargarNotas(); }
+    else toast.error("Error al eliminar");
+  }
+
 
   return (
     <div className="flex flex-col h-screen p-4 gap-4 overflow-hidden">
@@ -345,6 +374,16 @@ export default function AgendaPage() {
           {notasPropias.length > 0 && (
             <>
               <p className="text-xs uppercase tracking-wider text-[var(--text-muted)] mb-3">Mis notas</p>
+              {/* Input oculto para subir adjuntos */}
+              <input
+                ref={adjuntoInputRef}
+                type="file"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file && notaParaAdjunto) subirAdjuntoNota(notaParaAdjunto, file);
+                }}
+              />
               <div className="grid grid-cols-4 gap-3 mb-6">
                 {notasPropias.map((nota) => (
                   <div key={nota.id} className="rounded-xl border border-[var(--border-subtle)] overflow-hidden flex flex-col" style={{ borderLeftColor: nota.color, borderLeftWidth: 3 }}>
@@ -360,12 +399,63 @@ export default function AgendaPage() {
                     ) : (
                       <div className="p-3 flex flex-col gap-2 flex-1">
                         <p className="text-sm font-semibold text-[var(--text-primary)]">{nota.titulo}</p>
-                        <p className="text-xs text-[var(--text-secondary)] flex-1 whitespace-pre-wrap line-clamp-6">{nota.contenido}</p>
+                        <p className="text-xs text-[var(--text-secondary)] flex-1 whitespace-pre-wrap line-clamp-4">{nota.contenido}</p>
+
+                        {/* Adjuntos */}
+                        {nota.adjuntos.length > 0 && (
+                          <div className="space-y-1.5 mt-1">
+                            {nota.adjuntos.map((adj) => (
+                              <div key={adj.id} className="group relative">
+                                {adj.tipoArchivo.startsWith("image/") ? (
+                                  <div className="relative">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                      src={`/api/notas/adjuntos/${adj.id}`}
+                                      alt={adj.nombreArchivo}
+                                      className="w-full max-h-32 object-cover rounded-md cursor-pointer hover:opacity-90 transition-opacity"
+                                      onClick={() => window.open(`/api/notas/adjuntos/${adj.id}`, "_blank")}
+                                    />
+                                    <button
+                                      onClick={() => eliminarAdjuntoNota(adj.id)}
+                                      className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80"
+                                    >
+                                      <X size={10} />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center justify-between gap-1 bg-[var(--bg-panel-raised)] rounded px-2 py-1">
+                                    <a
+                                      href={`/api/notas/adjuntos/${adj.id}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex items-center gap-1.5 min-w-0 hover:text-[var(--accent)] transition-colors"
+                                    >
+                                      <FileText size={12} className="text-[var(--text-muted)] shrink-0" />
+                                      <span className="text-[10px] text-[var(--text-secondary)] truncate">{adj.nombreArchivo}</span>
+                                    </a>
+                                    <button onClick={() => eliminarAdjuntoNota(adj.id)} className="shrink-0 text-[var(--text-muted)] hover:text-[var(--status-perdido)] transition-colors opacity-0 group-hover:opacity-100">
+                                      <X size={10} />
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
                         {nota.compartidaCon.length > 0 && (
                           <p className="text-[10px] text-[var(--text-muted)]">Con: {nota.compartidaCon.map((c) => c.user.nombre).join(", ")}</p>
                         )}
                         <div className="flex items-center gap-2 pt-1 border-t border-[var(--border-subtle)]">
                           <button onClick={() => setNotaEditando({ id: nota.id, titulo: nota.titulo, contenido: nota.contenido })} className="text-[10px] text-[var(--accent)] hover:underline">Editar</button>
+                          <button
+                            onClick={() => { setNotaParaAdjunto(nota.id); adjuntoInputRef.current?.click(); }}
+                            disabled={subiendoAdjunto === nota.id}
+                            className="text-[10px] text-[var(--text-muted)] hover:text-[var(--accent)] flex items-center gap-0.5 transition-colors"
+                          >
+                            <Paperclip size={10} />
+                            {subiendoAdjunto === nota.id ? "Subiendo..." : "Adjuntar"}
+                          </button>
                           <button onClick={() => { setModalCompartir(nota); setCompartirIds(nota.compartidaCon.map((c) => c.user.id)); }} className="text-[10px] text-[var(--text-muted)] hover:text-[var(--accent)] flex items-center gap-0.5 transition-colors"><Share2 size={10} /> Compartir</button>
                           <button onClick={() => eliminarNota(nota.id)} className="text-[10px] text-[var(--text-muted)] hover:text-[var(--status-perdido)] flex items-center gap-0.5 ml-auto transition-colors"><Trash2 size={10} /></button>
                         </div>
@@ -383,7 +473,22 @@ export default function AgendaPage() {
                 {notasCompartidas.map((nota) => (
                   <div key={nota.id} className="rounded-xl border border-[var(--border-subtle)] p-3 flex flex-col gap-2" style={{ borderLeftColor: nota.color, borderLeftWidth: 3 }}>
                     <p className="text-sm font-semibold text-[var(--text-primary)]">{nota.titulo}</p>
-                    <p className="text-xs text-[var(--text-secondary)] whitespace-pre-wrap line-clamp-6">{nota.contenido}</p>
+                    <p className="text-xs text-[var(--text-secondary)] whitespace-pre-wrap line-clamp-4">{nota.contenido}</p>
+                    {nota.adjuntos.length > 0 && (
+                      <div className="space-y-1.5">
+                        {nota.adjuntos.map((adj) => (
+                          adj.tipoArchivo.startsWith("image/") ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img key={adj.id} src={`/api/notas/adjuntos/${adj.id}`} alt={adj.nombreArchivo} className="w-full max-h-28 object-cover rounded-md cursor-pointer hover:opacity-90 transition-opacity" onClick={() => window.open(`/api/notas/adjuntos/${adj.id}`, "_blank")} />
+                          ) : (
+                            <a key={adj.id} href={`/api/notas/adjuntos/${adj.id}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 bg-[var(--bg-panel-raised)] rounded px-2 py-1 hover:text-[var(--accent)] transition-colors">
+                              <FileText size={11} className="text-[var(--text-muted)] shrink-0" />
+                              <span className="text-[10px] text-[var(--text-secondary)] truncate">{adj.nombreArchivo}</span>
+                            </a>
+                          )
+                        ))}
+                      </div>
+                    )}
                     <p className="text-[10px] text-[var(--text-muted)] mt-auto pt-1 border-t border-[var(--border-subtle)]">De: {nota.autor?.nombre}</p>
                   </div>
                 ))}

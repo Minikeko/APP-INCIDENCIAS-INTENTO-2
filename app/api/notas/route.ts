@@ -13,6 +13,7 @@ export async function GET() {
         where: { autorId: user.userId },
         include: {
           compartidaCon: { include: { user: { select: { id: true, nombre: true } } } },
+          adjuntos: { select: { id: true, nombreArchivo: true, tipoArchivo: true, tamano: true, createdAt: true }, orderBy: { createdAt: "asc" } },
         },
         orderBy: { updatedAt: "desc" },
       }),
@@ -21,6 +22,7 @@ export async function GET() {
         include: {
           autor: { select: { id: true, nombre: true } },
           compartidaCon: { include: { user: { select: { id: true, nombre: true } } } },
+          adjuntos: { select: { id: true, nombreArchivo: true, tipoArchivo: true, tamano: true, createdAt: true }, orderBy: { createdAt: "asc" } },
         },
         orderBy: { updatedAt: "desc" },
       }),
